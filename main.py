@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from werkzeug.security import generate_password_hash, check_password_hash
 from bson import ObjectId
 from dotenv import load_dotenv
+import classify_input as ci
 
 load_dotenv()
 openai.api_key = os.getenv('OPENAI_API_KEY')
@@ -68,7 +69,7 @@ def logout():
     return redirect(url_for('home'))
 
 
-def load_conversation_history(user_id, toGpt):
+def load_conversation_history(user_id, toGpt): #check toGpt later
     user_id = ObjectId(user_id)  # Convert to ObjectId
 
     conversation = conversations.find_one(
@@ -96,8 +97,8 @@ def load_conversation_history(user_id, toGpt):
     return conversation_history  
 
 
-def save_conversation_history(user_id):
-    """Save the conversation history for a specific user."""
+def update_last_conversation(user_id):
+    """update the last conversation time for a specific user."""
     conversations.update_one(
         {'user_id': user_id, 'status': 'active'},
         {'$set': {
@@ -205,28 +206,61 @@ def chat():
             "message": system_instruction["content"]
         })
 
-    # Store user message
-    messages.insert_one({
-        "conversation_id": conversation_id,
-        "user_id": user_id,
-        "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-        "sender": "user",
-        "message_type": "text",
-        "message": user_message
+    """ 
+        Started to interact with chatbot 
+        (the storing messages order logic need to fix)
+    """
+    try:
+        inputClass = ci.classify_input([{"role": "user", "content":ci.classification_prompt.format(user_input=user_message)}])
+        print("The user input type:")
+        print(inputClass)
+
+        meta_prompt = ci.select_metaprompt(inputClass)
+
+        print(meta_prompt.format(user_input=user_message))
+
+        refinedPrompt = ci.generate_prompt([{"role": "user", "content":meta_prompt.format(user_input=user_message)}])
+
+        print(refinedPrompt)
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({
+            "error": "Failed to get response from OpenAI. Please check the API key."
+        }), 500
+    
+    chat_history=load_conversation_history(user_id, True)
+    chat_history.append({
+        "role": "user",
+        "content": refinedPrompt
     })
+        
 
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
-            messages=load_conversation_history(user_id, True),  # Get latest conversation
+            messages=chat_history,
             max_tokens=1500,
-            temperature=0.4,
+            temperature=0.3,
             top_p=0.9,
             presence_penalty=0.6,
             frequency_penalty=0.3
         )
 
         gpt_response = response.choices[0].message.content
+
+        # Store user message
+        messages.insert_one({
+            "conversation_id": conversation_id,
+            "user_id": user_id,
+            "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+            "sender": "user",
+            "message_type": "text",
+            "message": user_message,
+            "refined_message": refinedPrompt
+        })
+
+        update_last_conversation(user_id)
 
         # Store AI response
         messages.insert_one({
@@ -237,15 +271,14 @@ def chat():
             "message_type": "text",
             "message": gpt_response
         })
-
-        save_conversation_history(user_id)
-
         return jsonify({"response": gpt_response})
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({
             "error": "Failed to get response from OpenAI. Please check the API key."
         }), 500
+    
+
     
 
 if __name__ == '__main__':
