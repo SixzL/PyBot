@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from werkzeug.security import generate_password_hash, check_password_hash
 from bson import ObjectId
 from dotenv import load_dotenv
-import classify_input as ci
+import python_script.classify_input as ci
 
 load_dotenv()
 openai.api_key = os.getenv('OPENAI_API_KEY')
@@ -234,8 +234,7 @@ def chat():
         "role": "user",
         "content": refinedPrompt
     })
-        
-
+    print("\n\n\n", chat_history)
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
@@ -271,6 +270,8 @@ def chat():
             "message_type": "text",
             "message": gpt_response
         })
+
+        print("\n\n\n", gpt_response)
         return jsonify({"response": gpt_response})
     except Exception as e:
         print(f"Error: {str(e)}")

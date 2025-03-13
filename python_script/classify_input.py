@@ -142,19 +142,17 @@ def select_metaprompt(type):
     """)
     else:
         return textwrap.dedent("""\
-                Improve the following prompt so that it serves as a direct **instruction for a chatbot** when handling unknown or ambiguous user inputs.  
-                Ensure the refined prompt explicitly guides the chatbot on how to **interpret and respond** when user input does not fit predefined categories.  
+                Improve the following prompt so that it serves as a direct **instruction for a chatbot** when handling user inputs that do not fit predefined categories.  
+                Ensure the refined prompt explicitly guides the chatbot to **construct a meaningful response** based on the user’s actual input, rather than just providing general response guidelines.  
 
-                The refined prompt should:  
-                - Be structured as an **instructional directive for a chatbot**, not as a general explanation.  
-                - Direct the chatbot to analyze the user's input, extract possible intent, and attempt a meaningful response.  
-                - Instruct the chatbot to make reasonable inferences while avoiding assumptions that might mislead the user.  
-                - Encourage the chatbot to seek clarification **only if absolutely necessary**, while still making an attempt to assist.  
-                - Ensure that the chatbot remains adaptable and conversational, guiding the user towards a productive dialogue.  
+                The refined prompt should instruct the chatbot to:  
+                - Attempt to **understand and interpret** the user’s question, analyzing its meaning and intent.  
+                - **Generate a direct response** to the question instead of just outlining response guidelines.  
+                - Maintain a conversational and engaging tone while ensuring the response feels natural and user-friendly.  
+                - If the question is related to a problem that can be solved with an existing Python library, suggest relevant tools **without providing a full implementation**.  
+                The refined prompt should be a **direct chatbot instruction** without introductory phrases like "When handling user inputs that do not fit predefined categories, follow these instructions:".
 
-                The output should be a **refined chatbot instruction**, not a response format for the user.  
-
-                {user_input}
+                user input: {user_input}
 
                 Only return the refined prompt.
     """)
