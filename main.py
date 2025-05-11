@@ -9,6 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from bson import ObjectId
 from dotenv import load_dotenv
 import python_script.classify_input as ci
+import python_script.openai_function_calling as ofc
 
 load_dotenv()
 openai.api_key = os.getenv('OPENAI_API_KEY')
@@ -193,7 +194,22 @@ def chat():
 
     system_instruction = {
         "role": "system",
-        "content": "You are PyBot, an intelligent assistant designed to help learners master Python programming..."
+        "content": """
+You are PyBot, a virtual Python tutor.
+
+Your role is to help learners build a deep understanding of Python by:
+
+- **Clearly explaining Python concepts, terminology, and syntax when asked.**
+  - You are encouraged to define, describe, and clarify concepts such as what a "for loop" is, what a "list" does, or how "functions" work.
+
+- **Avoiding direct code solutions when the user asks for help writing or generating code.**
+  - Instead, guide them with thoughtful questions, small hints, or real-world analogies to encourage critical thinking and problem-solving.
+  - Do not provide complete code snippets, formulas, or step-by-step coding solutions.
+
+- **If the user asks for the code or final answer**, politely remind them that you are here to help them learn by thinking it through themselves.
+
+Be friendly, curious, and supportive. Your mission is to help users **understand Python concepts** while **empowering them to write the code themselves through guided discovery.**
+"""
     }
 
     if is_new_conversation:
@@ -211,17 +227,18 @@ def chat():
         (the storing messages order logic need to fix)
     """
     try:
-        inputClass = ci.classify_input([{"role": "user", "content":ci.classification_prompt.format(user_input=user_message)}])
-        print("The user input type:")
-        print(inputClass)
+        # inputClass = ci.classify_input([{"role": "user", "content":ci.classification_prompt.format(user_input=user_message)}])
+        # print("The user input type:")
+        # print(inputClass)
 
-        meta_prompt = ci.select_metaprompt(inputClass)
+        # meta_prompt = ci.select_metaprompt(inputClass)
 
-        print(meta_prompt.format(user_input=user_message))
+        # print(meta_prompt.format(user_input=user_message))
 
-        refinedPrompt = ci.generate_prompt([{"role": "user", "content":meta_prompt.format(user_input=user_message)}])
+        # refinedPrompt = ci.generate_prompt([{"role": "user", "content":meta_prompt.format(user_input=user_message)}])
 
-        print(refinedPrompt)
+        # print(refinedPrompt)
+        refinedPrompt = user_message
 
     except Exception as e:
         print(f"Error: {str(e)}")
@@ -243,36 +260,125 @@ def chat():
             temperature=0.3,
             top_p=0.9,
             presence_penalty=0.6,
-            frequency_penalty=0.3
+            frequency_penalty=0.3,
+            tools=ofc.functions,
+            tool_choice="auto"
         )
 
-        gpt_response = response.choices[0].message.content
+        # print("\n\n\n"+response.choices[0].finish_reason) #access the finish_reason to check whether its a function calling
+        # print("\n\n\n"+response.choices[0].message.tool_calls[0].function.name)#access the called function name
+        # print(response.choices[0].message.tool_calls[0].function.arguments) #access the function arguements
 
-        # Store user message
-        messages.insert_one({
-            "conversation_id": conversation_id,
-            "user_id": user_id,
-            "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-            "sender": "user",
-            "message_type": "text",
-            "message": user_message,
-            "refined_message": refinedPrompt
-        })
+        if response.choices[0].finish_reason == "tool_calls":
+            name = response.choices[0].message.tool_calls[0].function.name
+            args = response.choices[0].message.tool_calls[0].function.arguments
+            return_propose = ofc.call_function(name, args)
+            gpt_response = return_propose['gpt_response']
+            topic = return_propose['topic']
 
-        update_last_conversation(user_id)
+            # Store user message
+            messages.insert_one({
+                "conversation_id": conversation_id,
+                "user_id": user_id,
+                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                "sender": "user",
+                "message_type": "text",
+                "message": user_message,
+                "refined_message": refinedPrompt
+            })
 
-        # Store AI response
-        messages.insert_one({
-            "conversation_id": conversation_id,
-            "user_id": user_id,
-            "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-            "sender": "assistant",
-            "message_type": "text",
-            "message": gpt_response
-        })
+            update_last_conversation(user_id)
 
-        print("\n\n\n", gpt_response)
-        return jsonify({"response": gpt_response})
+            # Store AI response
+            messages.insert_one({
+                "conversation_id": conversation_id,
+                "user_id": user_id,
+                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                "sender": "assistant",
+                "message_type": "text",
+                "message": gpt_response,
+            })
+
+            messages.insert_one({
+                "conversation_id": conversation_id,
+                "user_id": user_id,
+                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                "sender": "assistant",
+                "message_type": "invitation",
+                "message": topic,
+                "propose_new_chat": True,
+                "accept_new_chat": False
+            })
+
+            return jsonify({"response": gpt_response, "propose_new_chat": True, "topic": topic })
+        else:
+            gpt_response = response.choices[0].message.content
+
+            # Store user message
+            messages.insert_one({
+                "conversation_id": conversation_id,
+                "user_id": user_id,
+                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                "sender": "user",
+                "message_type": "text",
+                "message": user_message,
+                "refined_message": refinedPrompt
+            })
+
+
+            update_last_conversation(user_id)
+
+            # Store AI response
+            messages.insert_one({
+                "conversation_id": conversation_id,
+                "user_id": user_id,
+                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                "sender": "assistant",
+                "message_type": "text",
+                "message": gpt_response,
+                "propose_new_chat": False,
+                "accept_new_chat": False
+            })
+
+            print("\n\n\n", gpt_response)
+            
+
+            # if gpt_response.get("function_call"):
+            #     # Step 4: Extract function name and arguments
+            #     function_name = gpt_response.function_call.name
+            #     arguments = json.loads(gpt_response.function_call.arguments)                        #EXPERIMENTAL
+                
+            #     # Example logic: just print what function was chosen
+            #     print(f"Function requested: {function_name}")
+            #     print(f"With arguments: {arguments}")
+
+            # for tool_call in response.out:
+            #     print(tool_call)
+
+            
+
+
+            # for tool_call in response.output:
+            #     if tool_call.type != "function_call":
+            #         continue
+
+            #     print("in forloop")
+            #     print("\n\n\n"+tool_call.type)
+            #     name = tool_call.name
+            #     args = json.loads(tool_call.arguments)
+
+            #     result = ofc.call_function(name, args)
+            #     # gpt_response.append({
+            #     #     "type": "function_call_output",
+            #     #     "call_id": tool_call.call_id,
+            #     #     "output": str(result)
+            #     # })
+            #     print({"type": "function_call_output",
+            #         "call_id": tool_call.call_id,
+            #         "output": str(result)})
+                
+            print("123 testing")
+            return jsonify({"response": gpt_response, "propose_new_chat": False})
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({
@@ -284,3 +390,5 @@ def chat():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=3000)
+
+

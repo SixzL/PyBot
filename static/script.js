@@ -15,60 +15,84 @@ $(document).ready(function () {
     },
   });
 
+  function appendInvite(topic) {
+    const chatMessages = $("#chat-messages");
+    const messageDiv = $("<div>")
+      .addClass("d-flex mb-2")
+      .addClass("justify-content-start");
+    console.log(topic);
+    const messageContent = `
+      <div class="test py-2 px-3 rounded bg-light text-dark">
+          ${topic}
+      </div>
+    `;
+
+    messageDiv.html(messageContent);
+    chatMessages.append(messageDiv);
+    chatMessages.scrollTop(chatMessages[0].scrollHeight);
+  }
+
   // Function to append messages with formatting
-  function appendMessage(sender, message) {
-      const chatMessages = $("#chat-messages");
-      const messageDiv = $("<div>")
-          .addClass("d-flex mb-2")
-          .addClass(sender === "user" ? "justify-content-end" : "justify-content-start");
-
-      // **Escape HTML special characters**
-      let escapedMessage = message
-          .replace(/</g, "&lt;")  // Escape `<`
-          .replace(/>/g, "&gt;"); // Escape `>`
-
-      // **Detect language & wrap code blocks with Prism.js classes**
-      const formattedMessage = escapedMessage.replace(
-          /```(\w*)\n([\s\S]*?)```/g, // Detect language (optional) + code block
-          function (match, lang, code) {
-              const languageClass = lang ? `language-${lang}` : "language-plaintext";
-              return `<pre class="rounded-2 mx-3"><code class="${languageClass}">${code}</code></pre>`;
-          }
+  function appendMessage(sender, message, invite, topic) {
+    const chatMessages = $("#chat-messages");
+    const messageDiv = $("<div>")
+      .addClass("d-flex mb-2")
+      .addClass(
+        sender === "user" ? "justify-content-end" : "justify-content-start"
       );
 
-      // **Format Markdown-style text**
-      const finalMessage = formattedMessage
-          .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold
-          .replace(/`([^`\n]+)`/g, "<code>$1</code>") // Inline code
-          .replace(/###\s+(.*?)(\n|$)/g, "<h3>$1</h3>") // Headings
-          .replace(/\n\n/g, "<br><br>") // Paragraph breaks
-          .replace(/\n/g, "<br>") // Line breaks
-          .trim();
+    // **Escape HTML special characters**
+    let escapedMessage = message
+      .replace(/</g, "&lt;") // Escape `<`
+      .replace(/>/g, "&gt;"); // Escape `>`
 
-      // **Create message content**
-      const messageContent = `
-        <div class="test py-2 px-3 rounded ${sender === "user" ? "bg-primary text-white" : "bg-light text-dark"}">
+    // **Detect language & wrap code blocks with Prism.js classes**
+    const formattedMessage = escapedMessage.replace(
+      /```(\w*)\n([\s\S]*?)```/g, // Detect language (optional) + code block
+      function (match, lang, code) {
+        const languageClass = lang ? `language-${lang}` : "language-plaintext";
+        return `<pre class="rounded-2 mx-3"><code class="${languageClass}">${code}</code></pre>`;
+      }
+    );
+
+    // **Format Markdown-style text**
+    const finalMessage = formattedMessage
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold
+      .replace(/`([^`\n]+)`/g, "<code>$1</code>") // Inline code
+      .replace(/###\s+(.*?)(\n|$)/g, "<h3>$1</h3>") // Headings
+      .replace(/\n\n/g, "<br><br>") // Paragraph breaks
+      .replace(/\n/g, "<br>") // Line breaks
+      .trim();
+
+    // **Create message content**
+    const messageContent = `
+        <div class="test py-2 px-3 rounded ${
+          sender === "user" ? "bg-primary text-white" : "bg-light text-dark"
+        }">
             ${finalMessage}
         </div>
       `;
 
-      messageDiv.html(messageContent);
-      chatMessages.append(messageDiv);
-      chatMessages.scrollTop(chatMessages[0].scrollHeight); // Auto-scroll
+    messageDiv.html(messageContent);
+    chatMessages.append(messageDiv);
+    chatMessages.scrollTop(chatMessages[0].scrollHeight); // Auto-scroll
 
-      // **Apply Prism syntax highlighting**
-      if (typeof Prism !== "undefined") {
-          Prism.highlightAll();
-      }
-    
-      let code = document.createElement("code");
-      Prism.hooks.add("before-highlight", function (env) {
+    // **Apply Prism syntax highlighting**
+    if (typeof Prism !== "undefined") {
+      Prism.highlightAll();
+    }
+
+    let code = document.createElement("code");
+    Prism.hooks.add("before-highlight", function (env) {
       env.code = env.element.innerText;
-      });
-      Prism.highlightElement(code);
+    });
+    Prism.highlightElement(code);
+
+    if (invite) {
+      console.log(topic);
+      appendInvite(topic);
+    }
   }
-
-
 
   // Send message when clicking the send button
   $("#send-btn").click(function () {
@@ -84,7 +108,12 @@ $(document).ready(function () {
       contentType: "application/json",
       data: JSON.stringify({ message: message }),
       success: function (response) {
-        appendMessage("assistant", response.response); // Append assistant response
+        appendMessage(
+          "assistant",
+          response.response,
+          response.propose_new_chat,
+          response.topic
+        ); // Append assistant response
       },
       error: function () {
         appendMessage("assistant", "⚠️ Error: Could not get a response.");
@@ -108,5 +137,28 @@ $(document).ready(function () {
     $.get("/logout", function () {
       window.location.href = "/login";
     });
+  });
+
+  const textarea = document.getElementById("user-input");
+  const sendButton = document.getElementById("send-btn");
+
+  // Auto-grow and limit behavior
+  textarea.addEventListener("input", function () {
+    this.style.height = "auto"; // Reset height to shrink if needed
+    this.style.overflowY = "hidden"; // Hide scroll while resizing
+
+    if (this.scrollHeight <= 150) {
+      this.style.height = this.scrollHeight + "px";
+    } else {
+      this.style.height = "150px";
+      this.style.overflowY = "auto"; // Enable scrollbar when limit is hit
+    }
+  });
+
+  // Reset on send
+  sendButton.addEventListener("click", function () {
+    textarea.value = "";
+    textarea.style.height = "auto";
+    textarea.style.overflowY = "hidden";
   });
 });
