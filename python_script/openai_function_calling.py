@@ -6,13 +6,13 @@ functions = [{
         "type": "function",
         "function": {
             "name": "propose_new_conversation",
-            "description": "Suggests starting a focused conversation when a deep or complex topic is detected.",
+            "description": "Use this function when the user shares a problem statement that resembles a coding challenge, algorithm question, or exercise description. Typical phrasing may include: 'Given an array...', 'Write a function that...', 'Return the result of...'. Examples include 'Two Sum', 'Sudoku Solver', or 'Palindrome Check'. The purpose is to move this into a dedicated, focused session on solving that problem.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "description": "The specific topic or exercise to focus on. For example, 'For Loop in Python (beginner)', 'Two Sum', 'Roman to Integer', 'Sudoku Solver'"
+                        "description": "The specific topic/exercise/problem to focus on. For example, 'For Loop in Python (beginner)', 'Two Sum', 'Roman to Integer', 'Sudoku Solver'"
                     }
                 },
                 "required": ["topic"]
@@ -22,7 +22,7 @@ functions = [{
 }]
 
 propose_template = """\
-Briefly talk about {topic}, and tell the user if they're interested in this topic, please click the "Create new chat" button to start a new conversation and go deeper into it.
+Briefly talk about {topic}, and tell the user if they're interested in this topic, please click the "Learn more" button to start a new conversation and go deeper into it.
 """
 
 # Example function implementations

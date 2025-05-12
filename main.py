@@ -92,7 +92,7 @@ def load_conversation_history(user_id, toGpt): #check toGpt later
             continue  # Skip system instruction for existing conversations
         conversation_history.append({
             "role": msg["sender"],
-            "content": msg["message"]
+            "content": msg["message"]["content"]
         })
 
     return conversation_history  
@@ -150,7 +150,7 @@ def chat_history():
         if msg["sender"] != "system":  #  Ensure system messages are skipped
             conversation_history.append({
                 "role": msg["sender"],
-                "content": msg["message"]
+                "content": msg["message"]["content"]
             })
 
     return jsonify({"history": conversation_history})
@@ -218,8 +218,10 @@ Be friendly, curious, and supportive. Your mission is to help users **understand
             "user_id": user_id,
             "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
             "sender": "system",
-            "message_type": "text",
-            "message": system_instruction["content"]
+            "message": {
+                "type": "text",
+                "content" : system_instruction["content"]
+            }
         })
 
     """ 
@@ -282,9 +284,11 @@ Be friendly, curious, and supportive. Your mission is to help users **understand
                 "user_id": user_id,
                 "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
                 "sender": "user",
-                "message_type": "text",
-                "message": user_message,
-                "refined_message": refinedPrompt
+                "message" : {
+                    "type": "text",
+                    "content": user_message,
+                    "refined": refinedPrompt
+                }
             })
 
             update_last_conversation(user_id)
@@ -295,8 +299,10 @@ Be friendly, curious, and supportive. Your mission is to help users **understand
                 "user_id": user_id,
                 "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
                 "sender": "assistant",
-                "message_type": "text",
-                "message": gpt_response,
+                "message": {
+                    "type": "text",
+                    "content": gpt_response
+                }
             })
 
             messages.insert_one({
@@ -304,10 +310,12 @@ Be friendly, curious, and supportive. Your mission is to help users **understand
                 "user_id": user_id,
                 "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
                 "sender": "assistant",
-                "message_type": "invitation",
-                "message": topic,
-                "propose_new_chat": True,
-                "accept_new_chat": False
+                "message": {
+                    "type": "invitation",
+                    "content": topic,
+                    "propose_new_chat": True,
+                    "accepted": False
+                }
             })
 
             return jsonify({"response": gpt_response, "propose_new_chat": True, "topic": topic })
@@ -320,9 +328,11 @@ Be friendly, curious, and supportive. Your mission is to help users **understand
                 "user_id": user_id,
                 "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
                 "sender": "user",
-                "message_type": "text",
-                "message": user_message,
-                "refined_message": refinedPrompt
+                "message": {
+                    "type": "text",
+                    "content": user_message,
+                    "refined": refinedPrompt
+                }
             })
 
 
@@ -334,10 +344,12 @@ Be friendly, curious, and supportive. Your mission is to help users **understand
                 "user_id": user_id,
                 "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
                 "sender": "assistant",
-                "message_type": "text",
-                "message": gpt_response,
-                "propose_new_chat": False,
-                "accept_new_chat": False
+                "message": {
+                    "type": "text",
+                    "content": gpt_response,
+                    "propose_new_chat": False,
+                    "accepted": False
+                }
             })
 
             print("\n\n\n", gpt_response)
