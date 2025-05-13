@@ -70,32 +70,26 @@ def logout():
     return redirect(url_for('home'))
 
 
-def load_conversation_history(user_id, toGpt): #check toGpt later
-    user_id = ObjectId(user_id)  # Convert to ObjectId
+def load_conversation_history(conversation_id): #check toGpt later
+    # Ensure ObjectId conversion if needed
+    conversation_id = ObjectId(conversation_id)
 
-    conversation = conversations.find_one(
-        {'user_id': user_id, 'status': 'active'},
-        sort=[('last_chat', -1)]
-    )
-
+    conversation = conversations.find_one({'_id': conversation_id})
     if not conversation:
-        return []  
+        return []
 
-    conversation_id = conversation["_id"]
-    message_cursor = messages.find(
-        {"conversation_id": conversation_id}
-    ).sort("timestamp", 1)
+    message_cursor = messages.find({"conversation_id": conversation_id}).sort("timestamp", 1)
 
     conversation_history = []
     for msg in message_cursor:
-        if msg["sender"] == "system" and not toGpt:
-            continue  # Skip system instruction for existing conversations
+        if msg["sender"] == "system":
+            continue
         conversation_history.append({
             "role": msg["sender"],
             "content": msg["message"]["content"]
         })
 
-    return conversation_history  
+    return conversation_history
 
 
 def update_last_conversation(user_id):
@@ -110,9 +104,10 @@ def update_last_conversation(user_id):
 
 @app.route('/')
 def home():
+    print(123)
     if 'user_id' not in session:
         return redirect(url_for('login_page'))
-    return render_template('index.html')
+    return render_template('index.html', conversation_id=None)
 
 
 @app.route('/login')
@@ -128,26 +123,30 @@ def register_page():
         return redirect(url_for('home'))
     return render_template('register.html')
 
-@app.route('/chat-history', methods=['GET'])
+@app.route('/chat-history', methods=['POST'])
 def chat_history():
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    user_id = ObjectId(session['user_id'])
-    
-    # Check if an active conversation exists
-    conversation = conversations.find_one({'user_id': user_id, 'status': 'active'})
-    
-    if not conversation:
-        return jsonify({"history": []})  #  Don't create a conversation, just return an empty list
+    data = request.json or {}
+    conversation_id = data.get('conversation_id')
 
-    # Fetch conversation messages
-    conversation_id = conversation["_id"]
-    message_cursor = messages.find({"conversation_id": conversation_id}).sort("timestamp", 1)
+    if conversation_id:
+        conversation = conversations.find_one({'_id': ObjectId(conversation_id), 'user_id': ObjectId(session['user_id'])})
+        if not conversation:
+            return jsonify({"history": []})
+    else:
+        # Default to latest active
+        conversation = conversations.find_one({'user_id': ObjectId(session['user_id']), 'status': 'active'})
+
+    if not conversation:
+        return jsonify({"history": []})
+
+    message_cursor = messages.find({"conversation_id": conversation["_id"]}).sort("timestamp", 1)
 
     conversation_history = []
     for msg in message_cursor:
-        if msg["sender"] != "system":  #  Ensure system messages are skipped
+        if msg["sender"] != "system":
             conversation_history.append({
                 "role": msg["sender"],
                 "content": msg["message"]["content"]
@@ -155,8 +154,9 @@ def chat_history():
 
     return jsonify({"history": conversation_history})
 
-@app.route('/chat', methods=['GET', 'POST'])
-def chat():
+
+@app.route('/conversation', methods=['GET', 'POST'])
+def new_conversation():
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
@@ -167,30 +167,40 @@ def chat():
         return jsonify({"error": "No user input provided"}), 400
 
     # Check if a conversation exists
-    conversation = conversations.find_one({
+    # conversation = conversations.find_one({
+    #     'user_id': user_id,
+    #     'status': 'active'
+    # })
+
+    new_conversation_doc = {
         'user_id': user_id,
+        'created_at': datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+        'last_chat': datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
         'status': 'active'
-    })
+    }
 
-    is_new_conversation = False  # Track if it's a new conversation
+    conversation_result = conversations.insert_one(new_conversation_doc)
+    conversation_id = conversation_result.inserted_id
 
-    if not conversation:
-        # Create a new conversation only after the first message is sent
-        conversation = {
-            'user_id': user_id,
-            'created_at': datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-            'last_chat': datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-            'status': 'active'
-        }
-        conversation_result = conversations.insert_one(conversation)
-        conversation_id = conversation_result.inserted_id
-        is_new_conversation = True  
-    else:
-        conversation_id = conversation["_id"]
-        conversations.update_one(
-            {'_id': conversation_id},
-            {'$set': {'last_chat': datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))}}
-        )
+    # is_new_conversation = False  # Track if it's a new conversation
+
+    # if not conversation:
+    #     # Create a new conversation only after the first message is sent
+    #     conversation = {
+    #         'user_id': user_id,
+    #         'created_at': datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+    #         'last_chat': datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+    #         'status': 'active'
+    #     }
+    #     conversation_result = conversations.insert_one(conversation)
+    #     conversation_id = conversation_result.inserted_id
+    #     is_new_conversation = True  
+    # else:
+    #     conversation_id = conversation["_id"]
+    #     conversations.update_one(
+    #         {'_id': conversation_id},
+    #         {'$set': {'last_chat': datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))}}
+    #     )
 
     system_instruction = {
         "role": "system",
@@ -212,22 +222,23 @@ Be friendly, curious, and supportive. Your mission is to help users **understand
 """
     }
 
-    if is_new_conversation:
-        messages.insert_one({
-            "conversation_id": conversation_id,
-            "user_id": user_id,
-            "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-            "sender": "system",
-            "message": {
-                "type": "text",
-                "content" : system_instruction["content"]
-            }
-        })
+    messages.insert_one({
+        "conversation_id": conversation_id,
+        "user_id": user_id,
+        "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+        "sender": "system",
+        "message": {
+            "type": "text",
+            "content" : system_instruction["content"]
+        } 
+    })
 
     """ 
         Started to interact with chatbot 
-        (the storing messages order logic need to fix)
     """
+    result = continue_conversation_logic(user_id, conversation_id, user_message)
+    result["conversation_id"] = str(conversation_id)
+    return jsonify(result)
     try:
         # inputClass = ci.classify_input([{"role": "user", "content":ci.classification_prompt.format(user_input=user_message)}])
         # print("The user input type:")
@@ -248,7 +259,7 @@ Be friendly, curious, and supportive. Your mission is to help users **understand
             "error": "Failed to get response from OpenAI. Please check the API key."
         }), 500
     
-    chat_history=load_conversation_history(user_id, True)
+    chat_history=load_conversation_history(user_id)
     chat_history.append({
         "role": "user",
         "content": refinedPrompt
@@ -353,42 +364,6 @@ Be friendly, curious, and supportive. Your mission is to help users **understand
             })
 
             print("\n\n\n", gpt_response)
-            
-
-            # if gpt_response.get("function_call"):
-            #     # Step 4: Extract function name and arguments
-            #     function_name = gpt_response.function_call.name
-            #     arguments = json.loads(gpt_response.function_call.arguments)                        #EXPERIMENTAL
-                
-            #     # Example logic: just print what function was chosen
-            #     print(f"Function requested: {function_name}")
-            #     print(f"With arguments: {arguments}")
-
-            # for tool_call in response.out:
-            #     print(tool_call)
-
-            
-
-
-            # for tool_call in response.output:
-            #     if tool_call.type != "function_call":
-            #         continue
-
-            #     print("in forloop")
-            #     print("\n\n\n"+tool_call.type)
-            #     name = tool_call.name
-            #     args = json.loads(tool_call.arguments)
-
-            #     result = ofc.call_function(name, args)
-            #     # gpt_response.append({
-            #     #     "type": "function_call_output",
-            #     #     "call_id": tool_call.call_id,
-            #     #     "output": str(result)
-            #     # })
-            #     print({"type": "function_call_output",
-            #         "call_id": tool_call.call_id,
-            #         "output": str(result)})
-                
             print("123 testing")
             return jsonify({"response": gpt_response, "propose_new_chat": False})
     except Exception as e:
@@ -396,9 +371,140 @@ Be friendly, curious, and supportive. Your mission is to help users **understand
         return jsonify({
             "error": "Failed to get response from OpenAI. Please check the API key."
         }), 500
-    
 
+@app.route('/conversation/<conversation_id>', methods=['POST'])
+def continue_conversation(conversation_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    user_id = ObjectId(session['user_id'])
+    user_message = request.json.get('message')
+
+    if not user_message:
+        return jsonify({"error": "No user input provided"}), 400
+
+    # Verify the conversation belongs to the user
+    conversation = conversations.find_one({'_id': ObjectId(conversation_id), 'user_id': user_id})
+    if not conversation:
+        return jsonify({'error': 'Conversation not found'}), 404
+
+    # Update last_chat timestamp
+    conversations.update_one(
+        {'_id': ObjectId(conversation_id)},
+        {'$set': {'last_chat': datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))}}
+    )
+
+    # Continue processing as a normal chat
+    result = continue_conversation_logic(user_id, conversation_id, user_message)
+    result["conversation_id"] = str(conversation_id)
+    return jsonify(result)
+
+@app.route('/conversation/<conversation_id>', methods=['GET'])
+def view_conversation_page(conversation_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login_page'))
+    return render_template('index.html', conversation_id=conversation_id)
     
+def continue_conversation_logic(user_id, conversation_id, user_message):
+    chat_history = load_conversation_history(conversation_id)
+    chat_history.append({"role": "user", "content": user_message})
+
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=chat_history,
+            max_tokens=1500,
+            temperature=0.3,
+            top_p=0.9,
+            presence_penalty=0.6,
+            frequency_penalty=0.3,
+            tools=ofc.functions,
+            tool_choice="auto"
+        )
+
+        if response.choices[0].finish_reason == "tool_calls":
+            name = response.choices[0].message.tool_calls[0].function.name
+            args = response.choices[0].message.tool_calls[0].function.arguments
+            result = ofc.call_function(name, args)
+
+            gpt_response = result['gpt_response']
+            topic = result['topic']
+
+            # Store the assistant's proposal for new chat
+            messages.insert_one({
+                "conversation_id": ObjectId(conversation_id),
+                "user_id": user_id,
+                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                "sender": "assistant",
+                "message": {
+                    "type": "invitation",
+                    "content": topic,
+                    "propose_new_chat": True,
+                    "accepted": False
+                }
+            })
+
+            return {
+                "response": gpt_response,
+                "propose_new_chat": True,
+                "topic": topic
+            }
+
+        # Standard text response
+        gpt_response = response.choices[0].message.content
+
+        # Store user message
+        messages.insert_one({
+            "conversation_id": ObjectId(conversation_id),
+            "user_id": user_id,
+            "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+            "sender": "user",
+            "message": {"type": "text", "content": user_message}
+        })
+
+        # Store assistant message
+        messages.insert_one({
+            "conversation_id": ObjectId(conversation_id),
+            "user_id": user_id,
+            "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+            "sender": "assistant",
+            "message": {"type": "text", "content": gpt_response}
+        })
+
+        return {
+            "response": gpt_response,
+            "propose_new_chat": False,
+            "topic": None
+        }
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return {
+            "error": "OpenAI API failure"
+        }
+
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({"error": "OpenAI API failure"}), 500
+
+@app.route('/conversations', methods=['GET'])
+def list_conversations():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    user_id = ObjectId(session['user_id'])
+    user_conversations = conversations.find({'user_id': user_id}).sort('last_chat', -1)
+
+    conversation_list = [
+        {
+            'conversation_id': str(conv['_id']),
+            'created_at': conv['created_at'].isoformat()
+        }
+        for conv in user_conversations
+    ]
+
+    return jsonify({'conversations': conversation_list})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=3000)

@@ -1,19 +1,32 @@
+let activeConversationId = initialConversationId || null;
+let isNewConversation = !activeConversationId;
+
 $(document).ready(function () {
+  if (activeConversationId) {
+    loadConversationContent(activeConversationId); // Load conversation on page load
+  } else {
+    console.log("Starting fresh conversation");
+  }
   // Load conversation history when the page loads
-  $.ajax({
-    url: "/chat-history",
-    method: "GET",
-    success: function (response) {
-      if (response.history.length > 0) {
-        response.history.forEach((msg) => {
-          appendMessage(msg.role, msg.content);
-        });
-      }
-    },
-    error: function (error) {
-      console.error("Error loading conversation history:", error);
-    },
-  });
+  function loadConversationContent(conversationId) {
+    $("#chat-messages").empty();
+    $.ajax({
+      url: "/chat-history",
+      method: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({ conversation_id: conversationId }),
+      success: function (response) {
+        if (response.history.length > 0) {
+          response.history.forEach((msg) =>
+            appendMessage(msg.role, msg.content)
+          );
+        }
+      },
+      error: function (error) {
+        console.error("Error loading conversation history:", error);
+      },
+    });
+  }
 
   function appendInvite(topic) {
     const chatMessages = $("#chat-messages");
@@ -99,11 +112,32 @@ $(document).ready(function () {
     const message = $("#user-input").val().trim();
     if (!message) return; // Prevent sending empty messages
 
+    const pathParts = window.location.pathname.split("/");
+    let activeConversationId = null;
+    let isNewConversation = false;
+
+    if (pathParts[1] === "conversation" && pathParts[2]) {
+      // Existing conversation
+      activeConversationId = pathParts[2];
+    } else {
+      // New conversation (default page `/`)
+      isNewConversation = true;
+    }
+
+    console.log("Active Conversation ID:", activeConversationId);
+    console.log("Is New Conversation:", isNewConversation);
+
     appendMessage("user", message); // Append user message
     $("#user-input").val("").prop("disabled", true); // Clear input and disable until response
 
+    // Determine API URL based on conversation state
+    let apiUrl = "/conversation";
+    if (!isNewConversation && activeConversationId) {
+      apiUrl = `/conversation/${activeConversationId}`;
+    }
+
     $.ajax({
-      url: "/chat",
+      url: apiUrl,
       method: "POST",
       contentType: "application/json",
       data: JSON.stringify({ message: message }),
@@ -114,6 +148,30 @@ $(document).ready(function () {
           response.propose_new_chat,
           response.topic
         ); // Append assistant response
+
+        if (isNewConversation) {
+          activeConversationId = response.conversation_id;
+          isNewConversation = false;
+
+          if (
+            !document.querySelector(
+              `[data-conversation-id="${response.conversation_id}"]`
+            )
+          ) {
+            const sidebar = document.getElementById("sidebar");
+            const newLink = document.createElement("a");
+            newLink.href = `/conversation/${response.conversation_id}`;
+            newLink.textContent = `Conversation ${response.conversation_id}`;
+            newLink.dataset.conversationId = response.conversation_id;
+            sidebar.appendChild(newLink);
+          }
+
+          window.history.pushState(
+            null,
+            "",
+            `/conversation/${response.conversation_id}`
+          );
+        }
       },
       error: function () {
         appendMessage("assistant", "⚠️ Error: Could not get a response.");
@@ -160,5 +218,19 @@ $(document).ready(function () {
     textarea.value = "";
     textarea.style.height = "auto";
     textarea.style.overflowY = "hidden";
+  });
+
+  // Listen for Back/Forward Button
+  window.addEventListener("popstate", function (event) {
+    const pathParts = window.location.pathname.split("/");
+    if (pathParts[1] === "conversation" && pathParts[2]) {
+      activeConversationId = pathParts[2];
+      isNewConversation = false;
+      loadConversationContent(activeConversationId); // Reload conversation
+    } else {
+      activeConversationId = null;
+      isNewConversation = true;
+      clearChatArea(); // Clear chat when returning to `/`
+    }
   });
 });
