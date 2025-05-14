@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const link = document.createElement("a");
         link.href = `/conversation/${conv.conversation_id}`;
-        link.classList.add("nav-link", "text-white");
+        link.classList.add("nav-link", "text-white", "text-truncate");
         link.textContent = `Conversation ${conv.conversation_id}`;
 
         li.appendChild(link);
