@@ -1,42 +1,37 @@
-<div class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark w-100 vh-100 "> <a href="/"
-        class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none"> <span
-            class="fs-4">PyBot</span> </a>
+<div class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark w-100 vh-100 ">
+    <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
+        <i class="fa-solid fa-robot me-2"></i>
+        <span class="fs-4">PyBot</span>
+    </a>
     <hr>
-    <div class="d-flex justify-content-end">
-        <i class="fa-solid fa-plus pb-2 pe-2"></i>
+    <div class="d-flex justify-content-between align-items-center">
+        <span class="text-light fs-6">Conversations</span>
+        <button class="btn btn-sm btn-outline-light rounded-circle" title="New conversation">
+            <i class="fa-solid fa-plus"></i>
+        </button>
     </div>
-    <div class="overflow-auto h-100">
+    <div class="overflow-auto h-100 mt-3">
         <ul class="nav nav-pills flex-column mb-auto overflow-x-hidden">
-            <!-- <li class="nav-item"> <a href="#" class="nav-link text-white" aria-current="page">
-                    Home
-                </a> </li>
-            <li> <a href="#" class="nav-link text-white text-bg-secondary">
-                    Dashboard
-                </a> </li>
-            <li> <a href="#" class="nav-link text-white">
-                    Orders
-                </a> </li>
-            <li> <a href="#" class="nav-link text-white">
-                    Products
-                </a> </li>
-            <li> <a href="#" class="nav-link text-white">
-                    Customers
-                </a> </li> -->
+            <!-- Conversations will be loaded dynamically via JavaScript -->
         </ul>
     </div>
 
     <hr>
-    <div class="dropdown"> <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle"
-            data-bs-toggle="dropdown" aria-expanded="false"> <img src="https://github.com/mdo.png" alt="" width="32"
-                height="32" class="rounded-circle me-2"> <strong>USER</strong> </a>
+    <div class="dropdown">
+        <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle"
+            data-bs-toggle="dropdown" aria-expanded="false">
+            <img src="https://github.com/mdo.png" alt="" width="32" height="32" class="rounded-circle me-2">
+            <strong>USER</strong>
+        </a>
         <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
-            <li><a class="dropdown-item" href="#">New project...</a></li>
-            <li><a class="dropdown-item" href="#">Settings</a></li>
-            <li><a class="dropdown-item" href="#">Profile</a></li>
+            <li><a class="dropdown-item" href="#"><i class="fa-solid fa-plus me-2"></i>New conversation</a></li>
+            <li><a class="dropdown-item" href="#"><i class="fa-solid fa-gear me-2"></i>Settings</a></li>
+            <li><a class="dropdown-item" href="#"><i class="fa-solid fa-user me-2"></i>Profile</a></li>
             <li>
                 <hr class="dropdown-divider">
             </li>
-            <li><a class="dropdown-item" id="signout-btn">Sign out</a></li>
+            <li><a class="dropdown-item" id="signout-btn"><i class="fa-solid fa-right-from-bracket me-2"></i>Sign
+                    out</a></li>
         </ul>
     </div>
 </div>
