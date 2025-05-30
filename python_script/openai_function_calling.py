@@ -2,34 +2,72 @@ import json
 import openai
 import jsonify
 
+# Add this constant at the top of the file, after imports
+SYSTEM_INSTRUCTION = '''You are PyBot, an educational coding mentor focused on guiding learners through problem-solving.
+
+Core Principles:
+1. TEACHING APPROACH
+- Always start with clear, practical examples
+- Use real-world scenarios to explain concepts
+- Build from simple to complex
+- Show patterns and common use cases
+
+2. EXERCISE STRUCTURE
+- Present exercises that build on shown examples
+- Make requirements clear and specific
+- Start with achievable challenges
+- Gradually increase difficulty
+
+3. GUIDED DISCOVERY
+- After examples, guide through exercises
+- Use the Socratic method - ask probing questions
+- Provide progressive hints that lead to understanding
+- Encourage users to break down problems into smaller steps
+
+4. HINT STRUCTURE
+- Start with conceptual hints about the problem type
+- Progress to more specific algorithmic hints
+- Provide small pseudocode hints if needed
+- Only suggest small code snippets as last resort
+
+5. LEARNING VALIDATION
+- Ask users to explain their understanding
+- Encourage them to modify examples
+- Guide them to test their solutions
+- Help them evaluate their code
+
+Response Format:
+1. Examples: Show 2-3 clear, practical examples
+2. Exercise: Present a specific, achievable challenge
+3. Context: Explain real-world applications
+4. Guidance: Provide progressive hints when needed
+5. Validation: Help test and improve solutions
+
+Always maintain a growth mindset and celebrate incremental progress.
+'''
+
 # Function definitions for OpenAI function calling
-functions = [
+normal_functions = [
     {
         "type": "function",
         "function": {
             "name": "propose_new_conversation",
             "description": 
 '''
-Use this function whenever the user's message includes, directly or indirectly, a question, statement, or request that can be interpreted as a coding challenge, algorithmic exercise, or programming problem statement—regardless of how the user phrases it.
-Common trigger phrases include:
+Use this function whenever the user's message includes, directly or indirectly, a question, statement, or request that can be interpreted as a coding challenge, algorithmic exercise, or programming problem statement.
+The function creates a focused learning conversation that encourages critical thinking through hints and guided discovery.
 
-"Write a function that..."
+Common trigger scenarios:
+- Programming challenges ("Write a function that...")
+- Algorithm problems ("How do you solve...?")
+- Data structure operations ("Implement a binary tree...")
+- Optimization questions ("How to improve this solution?")
 
-"How do you solve...?"
-
-"Given an array/string/list..."
-
-"Return the result of..."
-
-"What is the algorithm for..."
-
-"Find the output when..."
-
-"Implement..."
-
-Any request to code a solution for a problem.
-This includes both classic coding interview problems (e.g., 'Two Sum', 'Palindrome Checker', 'Binary Tree Traversal'), practical programming questions (e.g., 'How do I parse a CSV file in Python?'), and any mathematical, logical, or algorithmic scenario that requires a solution.
-Do not trigger for purely conceptual, theoretical, or general questions that do not request code or an explicit algorithm.
+The function will:
+- Keep the conversation focused on the specific topic
+- Provide hints instead of direct solutions
+- Encourage critical thinking and problem-solving
+- Guide users to discover solutions themselves
 ''',
             "parameters": {
                 "type": "object",
@@ -37,30 +75,41 @@ Do not trigger for purely conceptual, theoretical, or general questions that do 
                     "topic": {
                         "type": "string",
                         "description": "The specific topic/exercise/problem to focus on. For example, 'For Loop in Python (beginner)', 'Two Sum', 'Roman to Integer', 'Sudoku Solver'"
+                    },
+                    "submitted_code": {
+                        "type": "string",
+                        "description": "Optional. The user's submitted code to analyze and provide hints for improvement.",
+                        "default": None
                     }
                 },
                 "required": ["topic"]
             }
         }
-    },
+    }
+]
+
+focused_functions = [
     {
         "type": "function",
         "function": {
-            "name": "mark_problem_solved",
-            "description": "Use this function ONLY when the user has successfully solved the current problem in a focused conversation. This will mark the problem as completed and propose a new, more challenging problem.",
+            "name": "focused_placeholder",
+            "description": 
+'''
+DO NOT USE THIS FUNCTION.
+This is a placeholder function that should never be triggered or called.
+This function exists only for structural purposes.
+If you're seeing this description, ignore it completely.
+Never call or use this function under any circumstances.
+''',
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "conversation_id": {
+                    "placeholder": {
                         "type": "string",
-                        "description": "The ID of the current conversation"
-                    },
-                    "next_challenge": {
-                        "type": "string",
-                        "description": "A proposal for a new, slightly more challenging problem related to the one just solved. Be specific about the problem."
+                        "description": "This parameter should never be used."
                     }
                 },
-                "required": ["next_challenge"]
+                "required": ["placeholder"]
             }
         }
     }
@@ -68,9 +117,14 @@ Do not trigger for purely conceptual, theoretical, or general questions that do 
 
 # Template for proposing a new conversation
 propose_template = """\
-I see you're asking about {topic}. This appears to be a specific programming challenge that we can explore in depth.
+I see you're interested in learning about {topic}. Let's start with some examples and then move on to exercises.
 
-Would you like to focus on solving this specific problem step by step? I can guide you through the process of understanding and implementing a solution.
+Would you like to explore this topic step by step? I'll guide you through:
+1. Understanding the concept with clear examples
+2. Practice exercises starting from basic to more challenging
+3. Tips for solving similar problems
+
+Let me know if you'd like to begin!
 """
 
 # Template for proposing a next challenge
@@ -89,15 +143,127 @@ Let me know what you'd prefer!
 """
 
 # Example function implementations
-def propose_new_conversation(topic):
+def get_system_instruction(topic, submitted_code=None):
+    base_instruction = f'''You are PyBot, an educational coding mentor focused specifically on teaching {topic}.
+
+Core Principles:
+1. PROBLEM SCOPE
+- Focus ONLY on solving {topic} related problems
+- Immediately redirect any questions not related to {topic}
+- If user asks about other topics, politely remind them we're focusing on {topic}
+
+2. CODE ANALYSIS APPROACH
+- Never directly point out what's wrong
+- Use guiding questions to help them discover issues
+- Example: "What might happen if we input an empty array?"
+- Focus on thought process over direct corrections'''
+
+    if submitted_code:
+        code_specific_instruction = f'''
+3. CODE REVIEW STRATEGY
+- Start by asking them to explain their approach
+- Guide them to identify potential issues through questions
+- Help them discover optimization opportunities
+- Example questions:
+  * "What's the time complexity of your current approach?"
+  * "How would this handle edge case X?"
+  * "What would happen if we tried Y input?"
+
+4. IMPROVEMENT GUIDANCE
+- Never provide direct solution code
+- Instead ask:
+  * "Have you considered using a different data structure?"
+  * "What if we tried to reduce the number of loops?"
+  * "How could we make this more space-efficient?"
+
+5. TESTING SUGGESTIONS
+- Guide them to create their own test cases
+- Help them identify edge cases
+- Encourage them to think about:
+  * Input validation
+  * Edge cases
+  * Performance with large inputs
+  * Memory usage
+
+Current Code Context:
+```python
+{submitted_code}
+```
+
+Remember: 
+- Focus on their code but don't give direct solutions
+- Guide through questions and hints
+- Help them discover improvements themselves
+'''
+        return base_instruction + code_specific_instruction
+    else:
+        general_instruction = '''
+3. GUIDED DISCOVERY
+- Never provide direct solutions
+- Break down problems into smaller steps
+- Use the Socratic method with targeted questions
+- Guide through progressive hints
+
+4. HINT STRUCTURE
+- Start with conceptual understanding
+- Progress to algorithmic hints
+- Provide minimal pseudocode hints if needed
+- Focus on problem-solving process
+
+5. LEARNING VALIDATION
+- Ask users to explain their approach
+- Guide them to predict outcomes
+- Help them plan testing strategies
+- Discuss complexity considerations
+'''
+        return base_instruction + general_instruction
+
+def propose_new_conversation(topic, submitted_code=None):
     print("OFC: propose_new_conversation")
-    print("\n\n\n"+topic)
+    print(f"\n\n\nTopic: {topic}")
+    if submitted_code:
+        print(f"Submitted Code:\n{submitted_code}")
+    
+    # Get context-aware system instruction
+    system_instruction = get_system_instruction(topic, submitted_code)
+    
     try:
-        prompt = propose_template.format(topic=topic)
+        if submitted_code:
+            prompt = f"""Based on the provided system instruction and code:
+
+1. Start by asking 2-3 questions about their current implementation
+2. Guide them to discover potential improvements through hints
+3. Help them think about edge cases and testing
+4. Focus on {topic}-specific optimizations
+
+Remember: No direct solutions - use questions and hints to guide discovery."""
+        else:
+            prompt = f"""Create a {topic}-focused learning conversation that:
+1. Start with 2-3 clear, simple examples of {topic} in action
+   - Show basic usage
+   - Explain key concepts through examples
+   - Point out common patterns
+
+2. Then present a beginner-friendly exercise that:
+   - Builds on the examples shown
+   - Has clear requirements
+   - Is practical and relatable
+   - Can be solved using concepts just learned
+
+3. Provide context for the exercise:
+   - What problem it solves
+   - Real-world applications
+   - What skills it helps develop
+
+Remember: 
+- Examples should be simple and clear
+- Exercise should be specific and achievable
+- No direct solutions - guide through hints when they attempt the exercise"""
 
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
+                {"role": "system", "content": system_instruction},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=1500,
@@ -107,26 +273,13 @@ def propose_new_conversation(topic):
             frequency_penalty=0.3,
         )
 
-        gpt_response = response.choices[0].message.content
-
-        return {"topic": topic, "gpt_response": gpt_response, "invite": True}
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({
-            "error": "Failed to get response from OpenAI. Please check the API key."
-        }), 500
-
-def mark_problem_solved(conversation_id=None, next_challenge=None):
-    print("OFC: mark_problem_solved")
-    print(f"\n\n\nNext challenge: {next_challenge}")
-    try:
-        # Format the response using the template
-        gpt_response = next_challenge_template.format(next_challenge=next_challenge)
-        
-        # In a real implementation, you would make a call to mark the conversation as completed
-        # This is now handled in the main.py file with the /mark-conversation-complete endpoint
-        
-        return {"next_challenge": next_challenge, "gpt_response": gpt_response, "invite": True}
+        return {
+            "topic": topic,
+            "submitted_code": submitted_code,
+            "gpt_response": response.choices[0].message.content,
+            "invite": True,
+            "is_focused": True
+        }
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({
@@ -168,8 +321,6 @@ def call_function(name, args_str):
     
     if name == "propose_new_conversation":
         return propose_new_conversation(**args)
-    elif name == "mark_problem_solved":
-        return mark_problem_solved(**args)
     else:
         print(f"Unknown function: {name}")
         return {"error": f"Unknown function: {name}"}

@@ -268,50 +268,17 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
     # Check if this is a focused conversation
     conversation = conversations.find_one({'_id': ObjectId(conversation_id)})
     is_focused = conversation and conversation.get('type') == 'focused'
-    is_completed = conversation and conversation.get('is_completed', False)
-    
-    # If conversation is already marked as completed, inform the user
-    if is_completed:
-        # Store user message
-        messages.insert_one({
-            "conversation_id": ObjectId(conversation_id),
-            "user_id": user_id,
-            "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-            "sender": "user",
-            "message": {"type": "text", "content": user_message}
-        })
-        
-        # Generate response about conversation being completed
-        completion_response = f"""
-This focused session on "{conversation.get('topic')}" has been completed.
-
-If you'd like to start a new challenge, please:
-1. Go back to the main conversation
-2. Ask a Python question, or
-3. Mention a new coding challenge you'd like to tackle
-
-You can also click on the "New conversation" button in the sidebar.
-"""
-        
-        # Store assistant message
-        messages.insert_one({
-            "conversation_id": ObjectId(conversation_id),
-            "user_id": user_id,
-            "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-            "sender": "assistant",
-            "message": {"type": "text", "content": completion_response}
-        })
-        
-        return {
-            "response": completion_response,
-            "propose_new_chat": False,
-            "topic": None
-        }
     
     chat_history = load_conversation_history(conversation_id)
     chat_history.append({"role": "user", "content": user_message})
-    print(chat_history)
+    
     try:
+        # Select functions based on conversation type
+        if is_focused:
+            tools = ofc.focused_functions
+        else:
+            tools = ofc.normal_functions
+
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=chat_history,
@@ -320,62 +287,30 @@ You can also click on the "New conversation" button in the sidebar.
             top_p=0.9,
             presence_penalty=0.6,
             frequency_penalty=0.3,
-            tools=ofc.functions,
+            tools=tools,
             tool_choice="auto"
         )
 
         if response.choices[0].finish_reason == "tool_calls":
             name = response.choices[0].message.tool_calls[0].function.name
             args = response.choices[0].message.tool_calls[0].function.arguments
-            args_dict = json.loads(args)
-            
-            # Store user message
-            messages.insert_one({
-                "conversation_id": ObjectId(conversation_id),
-                "user_id": user_id,
-                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-                "sender": "user",
-                "message": {"type": "text", "content": user_message}
-            })
-            
-            # Handle mark_problem_solved for focused conversations
-            if name == "mark_problem_solved" and is_focused:
-                result = ofc.call_function(name, args)
-                gpt_response = result['gpt_response']
-                next_challenge = args_dict.get('next_challenge')
-                
-                # Update the conversation to mark it as completed
-                conversations.update_one(
-                    {'_id': ObjectId(conversation_id)},
-                    {'$set': {
-                        'is_completed': True,
-                        'status': 'completed',
-                        'next_challenge_proposed': next_challenge
-                    }}
-                )
-                
-                # Store assistant message
-                messages.insert_one({
-                    "conversation_id": ObjectId(conversation_id),
-                    "user_id": user_id,
-                    "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-                    "sender": "assistant",
-                    "message": {"type": "text", "content": gpt_response}
-                })
-                
-                return {
-                    "response": gpt_response,
-                    "propose_new_chat": True,
-                    "topic": next_challenge
-                }
             
             # Handle regular propose_new_conversation for normal conversations
             result = ofc.call_function(name, args)
             gpt_response = result['gpt_response']
             topic = result.get('topic')
 
-            # Store the assistant's proposal for new chat
+            # Store the assistant's response message
             messages.insert_one({
+                "conversation_id": ObjectId(conversation_id),
+                "user_id": user_id,
+                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                "sender": "assistant",
+                "message": {"type": "text", "content": gpt_response}
+            })
+
+            # Store the assistant's proposal for new chat
+            invitation_message = {
                 "conversation_id": ObjectId(conversation_id),
                 "user_id": user_id,
                 "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
@@ -385,12 +320,17 @@ You can also click on the "New conversation" button in the sidebar.
                     "content": topic,
                     "accepted": False
                 }
-            })
+            }
+            
+            # Insert the message and get its ID
+            message_result = messages.insert_one(invitation_message)
+            message_id = str(message_result.inserted_id)
 
             return {
                 "response": gpt_response,
                 "propose_new_chat": True,
-                "topic": topic
+                "topic": topic,
+                "message_id": message_id
             }
 
         # Standard text response
@@ -425,11 +365,6 @@ You can also click on the "New conversation" button in the sidebar.
         return {
             "error": "OpenAI API failure"
         }
-
-
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"error": "OpenAI API failure"}), 500
 
 @app.route('/conversations', methods=['GET'])
 def list_conversations():
@@ -488,26 +423,10 @@ def create_focused_conversation():
     conversation_result = conversations.insert_one(focused_conversation)
     conversation_id = conversation_result.inserted_id
 
-    # Create a tailored system instruction for focused conversations
+    # Get the system instruction using the function from openai_function_calling
     system_instruction = {
         "role": "system",
-        "content": f"""
-You are PyBot, a virtual Python tutor. This is a focused conversation about: {topic}
-
-Your role is to:
-
-1. Guide the user through solving this specific problem/challenge: "{topic}"
-2. Help them learn by providing increasingly helpful hints rather than immediate solutions.
-3. When you believe they have successfully solved the problem, congratulate them and mark the conversation as completed.
-4. At the end, propose a new, slightly more challenging problem they might want to try next.
-
-Remember:
-- First, help them understand the problem clearly.
-- Provide guidance, not complete solutions.
-- If they're stuck, offer increasingly helpful hints.
-- When they've solved it, provide positive reinforcement.
-- Before ending, suggest a new, related but more challenging problem as their next exercise.
-"""
+        "content": ofc.get_system_instruction(topic)
     }
 
     # Store the system instruction
@@ -522,7 +441,7 @@ Remember:
         } 
     })
 
-    # Add initial message welcoming the user to the focused conversation
+    # Add initial message welcoming the user to the focused conversation using the propose template
     welcome_message = {
         "conversation_id": conversation_id,
         "user_id": user_id,
@@ -530,18 +449,7 @@ Remember:
         "sender": "assistant",
         "message": {
             "type": "text",
-            "content": f"""
-# Focused Session: {topic}
-
-Welcome to this focused learning session! I'll be helping you work through this problem step by step.
-
-Let's start by understanding the problem clearly. Could you:
-1. Explain your understanding of what this problem requires
-2. Share any initial thoughts or approaches you're considering
-3. Let me know if you'd like me to explain any concepts first
-
-When you're ready, we can begin working on the solution together!
-"""
+            "content": ofc.propose_template.format(topic=topic)
         }
     }
     
@@ -549,49 +457,32 @@ When you're ready, we can begin working on the solution together!
 
     return jsonify({'success': True, 'conversation_id': str(conversation_id)})
 
-
-@app.route('/mark-conversation-complete', methods=['POST'])
-def mark_conversation_complete():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-
-    user_id = ObjectId(session['user_id'])
-    data = request.json
-    conversation_id = data.get('conversation_id')
-    next_challenge = data.get('next_challenge')
-
-    if not conversation_id:
-        return jsonify({"error": "No conversation ID provided"}), 400
-
-    # Update conversation to mark it as completed
-    conversations.update_one(
-        {'_id': ObjectId(conversation_id), 'user_id': user_id},
-        {'$set': {
-            'is_completed': True,
-            'status': 'completed',
-            'next_challenge_proposed': next_challenge
-        }}
-    )
-
-    return jsonify({'success': True})
-
 @app.route('/mark-invitation-accepted', methods=['POST'])
 def mark_invitation_accepted():
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    data = request.json
-    conversation_id = data.get('conversation_id')
-    message_id = data.get('message_id')
-
-    if not conversation_id:
-        return jsonify({"error": "Missing conversation_id"}), 400
-
     try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        conversation_id = data.get('conversation_id')
+        message_id = data.get('message_id')
+
+        if not conversation_id:
+            return jsonify({"error": "Missing conversation_id"}), 400
+
+        # Validate conversation_id format
+        try:
+            conv_id = ObjectId(conversation_id)
+        except:
+            return jsonify({"error": "Invalid conversation_id format"}), 400
+
         # Update the message in the database
         result = messages.update_one(
             {
-                "conversation_id": ObjectId(conversation_id),
+                "conversation_id": conv_id,
                 "message.type": "invitation"
             },
             {'$set': {'message.accepted': True}}

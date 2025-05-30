@@ -239,6 +239,11 @@ $(document).ready(function () {
           const button = $(this);
 
           // First mark the invitation as accepted
+          if (!activeConversationId) {
+            showErrorToast("No active conversation found");
+            return;
+          }
+
           $.ajax({
             url: "/mark-invitation-accepted",
             method: "POST",
@@ -253,8 +258,10 @@ $(document).ready(function () {
               // Then create the focused conversation
               createFocusedConversation(topicData);
             },
-            error: function () {
-              showErrorToast("Failed to update invitation status");
+            error: function (xhr) {
+              showErrorToast(
+                xhr.responseJSON?.error || "Failed to update invitation status"
+              );
             },
           });
         });
@@ -268,12 +275,10 @@ $(document).ready(function () {
     if (!message) return; // Prevent sending empty messages
 
     const pathParts = window.location.pathname.split("/");
-    let activeConversationId = null;
-    let isNewConversation = false;
-
     if (pathParts[1] === "conversation" && pathParts[2]) {
       // Existing conversation
       activeConversationId = pathParts[2];
+      isNewConversation = false;
     } else {
       // New conversation (default page `/`)
       isNewConversation = true;
@@ -313,6 +318,23 @@ $(document).ready(function () {
         // Remove typing indicator
         $(".typing-indicator").remove();
 
+        // Update activeConversationId immediately when we get it
+        if (isNewConversation && response.conversation_id) {
+          activeConversationId = response.conversation_id;
+          isNewConversation = false;
+
+          // Update URL and title
+          window.history.pushState(
+            null,
+            "",
+            `/conversation/${response.conversation_id}`
+          );
+
+          if (response.title) {
+            $("#conversation-title").text(response.title);
+          }
+        }
+
         // Append assistant's text response
         appendMessage({
           role: "assistant",
@@ -327,31 +349,15 @@ $(document).ready(function () {
             type: "invitation",
             content: response.topic,
             accepted: false,
+            _id: response.message_id, // Make sure this is passed from the backend
           });
         }
 
-        if (isNewConversation && response.conversation_id) {
-          activeConversationId = response.conversation_id;
-          isNewConversation = false;
-
-          // Update the conversation title if provided
-          if (response.title) {
-            $("#conversation-title").text(response.title);
-          }
-
-          // Update the sidebar with the new conversation
-          if (typeof window.updateConversationList === "function") {
-            window.updateConversationList();
-          } else {
-            // Dispatch event as fallback
-            window.dispatchEvent(new Event("conversationUpdated"));
-          }
-
-          window.history.pushState(
-            null,
-            "",
-            `/conversation/${response.conversation_id}`
-          );
+        // Update the sidebar
+        if (typeof window.updateConversationList === "function") {
+          window.updateConversationList();
+        } else {
+          window.dispatchEvent(new Event("conversationUpdated"));
         }
       },
       error: function () {
@@ -491,11 +497,6 @@ function updateSidebarConversations() {
               conv.topic || `Challenge ${index + 1}`
             }`
           );
-          if (conv.is_completed) {
-            convName.append(
-              ' <i class="fa-solid fa-check-circle text-success"></i>'
-            );
-          }
         } else {
           convName.html(
             `<i class="fa-solid fa-comment me-1"></i>${
