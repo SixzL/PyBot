@@ -204,15 +204,72 @@ span.token.operator {
 }
 
 /* Code styling improvements */
-pre {
+.code-block {
+  margin: 1em 0 !important;
+  padding: 1em !important;
   border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin: 1rem 0;
+  background: #f5f2f0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
 }
 
-code {
-  font-family: "Fira Code", monospace;
-  font-size: 0.9rem;
+.code-block code {
+  font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  direction: ltr !important;
+  text-align: left !important;
+  white-space: pre !important;
+  word-spacing: normal !important;
+  word-break: normal !important;
+  tab-size: 4 !important;
+  hyphens: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow-x: auto !important;
+  display: block !important;
+  max-width: 100% !important;
+  min-width: 100px !important;
+  background: none !important;
+}
+
+/* Override Prism styles for better visibility */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #666 !important;
+}
+
+.token.punctuation {
+  color: #444 !important;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #905 !important;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: #088 !important;
+}
+
+/* Ensure inline code is styled differently */
+:not(pre) > code {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+  white-space: normal;
 }
 
 /* Toast styling */

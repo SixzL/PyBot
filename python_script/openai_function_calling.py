@@ -1,50 +1,15 @@
 import json
 import openai
 import jsonify
+from bson import ObjectId
+from pymongo import MongoClient
+import os
+from dotenv import load_dotenv
 
-# Add this constant at the top of the file, after imports
-SYSTEM_INSTRUCTION = '''You are PyBot, an educational coding mentor focused on guiding learners through problem-solving.
-
-Core Principles:
-1. TEACHING APPROACH
-- Always start with clear, practical examples
-- Use real-world scenarios to explain concepts
-- Build from simple to complex
-- Show patterns and common use cases
-
-2. EXERCISE STRUCTURE
-- Present exercises that build on shown examples
-- Make requirements clear and specific
-- Start with achievable challenges
-- Gradually increase difficulty
-
-3. GUIDED DISCOVERY
-- After examples, guide through exercises
-- Use the Socratic method - ask probing questions
-- Provide progressive hints that lead to understanding
-- Encourage users to break down problems into smaller steps
-
-4. HINT STRUCTURE
-- Start with conceptual hints about the problem type
-- Progress to more specific algorithmic hints
-- Provide small pseudocode hints if needed
-- Only suggest small code snippets as last resort
-
-5. LEARNING VALIDATION
-- Ask users to explain their understanding
-- Encourage them to modify examples
-- Guide them to test their solutions
-- Help them evaluate their code
-
-Response Format:
-1. Examples: Show 2-3 clear, practical examples
-2. Exercise: Present a specific, achievable challenge
-3. Context: Explain real-world applications
-4. Guidance: Provide progressive hints when needed
-5. Validation: Help test and improve solutions
-
-Always maintain a growth mindset and celebrate incremental progress.
-'''
+# MongoDB connection
+client = MongoClient(os.getenv('MONGODB_URI'))
+db = client['PyBot']
+messages = db['message']
 
 # Function definitions for OpenAI function calling
 normal_functions = [
@@ -62,12 +27,20 @@ Common trigger scenarios:
 - Algorithm problems ("How do you solve...?")
 - Data structure operations ("Implement a binary tree...")
 - Optimization questions ("How to improve this solution?")
+- Concept explanations ("What is a for loop?", "How do lists work?")
 
 The function will:
 - Keep the conversation focused on the specific topic
 - Provide hints instead of direct solutions
 - Encourage critical thinking and problem-solving
 - Guide users to discover solutions themselves
+
+IMPORTANT: For the submitted_code parameter, follow this STRICT PRIORITY ORDER:
+1. HIGHEST PRIORITY: If the user provides code in their message, use that code
+2. MEDIUM PRIORITY: If discussing an existing code example from the conversation, use that code
+3. LOWEST PRIORITY: If no code is available from priorities 1 or 2, you MUST generate a simple, beginner-friendly example that demonstrates the concept
+
+NEVER return an empty string - always provide relevant code that helps teach the concept according to the priority order above.
 ''',
             "parameters": {
                 "type": "object",
@@ -78,11 +51,10 @@ The function will:
                     },
                     "submitted_code": {
                         "type": "string",
-                        "description": "Optional. The user's submitted code to analyze and provide hints for improvement.",
-                        "default": None
-                    }
+                        "description": "The code to analyze or exercise to work on. Follow this STRICT PRIORITY ORDER:\n1. HIGHEST PRIORITY: User's submitted code if provided in their message\n2. MEDIUM PRIORITY: Relevant code from conversation context\n3. LOWEST PRIORITY: If no code is available from priorities 1 or 2, generate a beginner-friendly example that demonstrates the topic\n\nNEVER return an empty string - you MUST provide code following the priority order above.",
+                    },
                 },
-                "required": ["topic"]
+                "required": ["topic", "submitted_code"]
             }
         }
     }
@@ -117,12 +89,14 @@ Never call or use this function under any circumstances.
 
 # Template for proposing a new conversation
 propose_template = """\
-I see you're interested in learning about {topic}. Let's start with some examples and then move on to exercises.
+I see you're interested in {topic}. Let's work through this together.
 
-Would you like to explore this topic step by step? I'll guide you through:
-1. Understanding the concept with clear examples
-2. Practice exercises starting from basic to more challenging
-3. Tips for solving similar problems
+{code_section}
+
+I'll guide you through:
+1. Understanding the problem and its requirements
+2. Breaking down the solution into manageable steps
+3. Identifying key concepts and potential challenges
 
 Let me know if you'd like to begin!
 """
@@ -143,47 +117,39 @@ Let me know what you'd prefer!
 """
 
 # Example function implementations
-def get_system_instruction(topic, submitted_code=None):
+def get_system_instruction(topic, submitted_code):
     base_instruction = f'''You are PyBot, an educational coding mentor focused specifically on teaching {topic}.
 
 Core Principles:
-1. PROBLEM SCOPE
+1. QUESTION PACING
+- Ask only ONE question at a time
+- Wait for the user's complete answer before asking the next question
+- If the user's answer is incomplete or unclear, follow up on that specific point before moving on
+- Never overwhelm the user with multiple questions at once
+
+2. PROBLEM SCOPE
 - Focus ONLY on solving {topic} related problems
 - Immediately redirect any questions not related to {topic}
 - If user asks about other topics, politely remind them we're focusing on {topic}
 
-2. CODE ANALYSIS APPROACH
-- Never directly point out what's wrong
-- Use guiding questions to help them discover issues
-- Example: "What might happen if we input an empty array?"
-- Focus on thought process over direct corrections'''
+3. CONVERSATION FLOW
+- Start with one fundamental question about their understanding
+- Based on their response, ask one targeted follow-up question
+- Progress systematically through concepts, one step at a time'''
 
     if submitted_code:
         code_specific_instruction = f'''
-3. CODE REVIEW STRATEGY
-- Start by asking them to explain their approach
-- Guide them to identify potential issues through questions
-- Help them discover optimization opportunities
-- Example questions:
-  * "What's the time complexity of your current approach?"
-  * "How would this handle edge case X?"
-  * "What would happen if we tried Y input?"
+4. CODE REVIEW APPROACH
+- Begin with a single, specific question about their code
+- Examples (choose only ONE):
+  * "Could you explain how this part of your code works?"
+  * "What was your thought process for this approach?"
+  * "How does your code handle [specific case]?"
 
-4. IMPROVEMENT GUIDANCE
-- Never provide direct solution code
-- Instead ask:
-  * "Have you considered using a different data structure?"
-  * "What if we tried to reduce the number of loops?"
-  * "How could we make this more space-efficient?"
-
-5. TESTING SUGGESTIONS
-- Guide them to create their own test cases
-- Help them identify edge cases
-- Encourage them to think about:
-  * Input validation
-  * Edge cases
-  * Performance with large inputs
-  * Memory usage
+5. IMPROVEMENT GUIDANCE
+- After receiving a complete answer to your question, provide ONE targeted hint
+- Wait for their response before offering another hint
+- Focus on one aspect of improvement at a time
 
 Current Code Context:
 ```python
@@ -191,74 +157,62 @@ Current Code Context:
 ```
 
 Remember: 
-- Focus on their code but don't give direct solutions
-- Guide through questions and hints
-- Help them discover improvements themselves
+- One question at a time
+- Wait for complete answers
+- Stay focused on the current point of discussion
+- Only move to the next concept when the current one is understood
 '''
         return base_instruction + code_specific_instruction
     else:
         general_instruction = '''
-3. GUIDED DISCOVERY
-- Never provide direct solutions
-- Break down problems into smaller steps
-- Use the Socratic method with targeted questions
-- Guide through progressive hints
-
-4. HINT STRUCTURE
-- Start with conceptual understanding
-- Progress to algorithmic hints
-- Provide minimal pseudocode hints if needed
-- Focus on problem-solving process
+4. GUIDED DISCOVERY
+- Start with one foundational question
+- Wait for the user's understanding before proceeding
+- Break down complex topics into single, manageable steps
+- Use the Socratic method with ONE question at a time
 
 5. LEARNING VALIDATION
-- Ask users to explain their approach
-- Guide them to predict outcomes
-- Help them plan testing strategies
-- Discuss complexity considerations
+- Ask ONE specific question to verify understanding
+- If understanding is incomplete, stay on that topic
+- Only progress when current concept is clear
+- Focus on depth over breadth
 '''
         return base_instruction + general_instruction
 
-def propose_new_conversation(topic, submitted_code=None):
+def propose_new_conversation(topic, submitted_code):
     print("OFC: propose_new_conversation")
     print(f"\n\n\nTopic: {topic}")
-    if submitted_code:
-        print(f"Submitted Code:\n{submitted_code}")
+    print(f"Submitted Code:\n{submitted_code}")
+    
+    # Format code section for the template
+    code_section = f"""Here's the code we'll be working with:
+
+```python
+{submitted_code}
+```""" if submitted_code else ""
     
     # Get context-aware system instruction
     system_instruction = get_system_instruction(topic, submitted_code)
     
     try:
-        if submitted_code:
-            prompt = f"""Based on the provided system instruction and code:
+        prompt = f"""Based on the provided system instruction and code:
 
-1. Start by asking 2-3 questions about their current implementation
-2. Guide them to discover potential improvements through hints
-3. Help them think about edge cases and testing
-4. Focus on {topic}-specific optimizations
+1. If this is user-submitted code or code from conversation:
+   - Start by asking 2-3 questions about the current implementation
+   - Guide them to discover potential improvements through hints
+   - Help them think about edge cases and testing
+   - Focus on {topic}-specific optimizations
 
-Remember: No direct solutions - use questions and hints to guide discovery."""
-        else:
-            prompt = f"""Create a {topic}-focused learning conversation that:
-1. Start with 2-3 clear, simple examples of {topic} in action
-   - Show basic usage
-   - Explain key concepts through examples
-   - Point out common patterns
-
-2. Then present a beginner-friendly exercise that:
-   - Builds on the examples shown
-   - Has clear requirements
-   - Is practical and relatable
-   - Can be solved using concepts just learned
-
-3. Provide context for the exercise:
-   - What problem it solves
-   - Real-world applications
-   - What skills it helps develop
+2. If this is a generated exercise:
+   - Explain why this exercise is good for learning {topic}
+   - Break down the key concepts they'll need to understand
+   - Provide initial hints about approaching the problem
+   - Suggest what they should think about before starting
 
 Remember: 
-- Examples should be simple and clear
-- Exercise should be specific and achievable
-- No direct solutions - guide through hints when they attempt the exercise"""
+- No direct solutions - use questions and hints to guide discovery
+- Focus on understanding and learning rather than just completing the task
+- Help them develop problem-solving skills"""
 
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
@@ -278,7 +232,7 @@ Remember:
             "submitted_code": submitted_code,
             "gpt_response": response.choices[0].message.content,
             "invite": True,
-            "is_focused": True
+            "is_focused": False  # This is not a focused conversation yet
         }
     except Exception as e:
         print(f"Error: {str(e)}")
@@ -324,3 +278,73 @@ def call_function(name, args_str):
     else:
         print(f"Unknown function: {name}")
         return {"error": f"Unknown function: {name}"}
+
+def generate_welcome_message(topic, submitted_code=None, conversation_id=None):
+    """Generate a personalized welcome message for a focused conversation."""
+    try:
+        # Format code section for context
+        code_context = f"""Here's the code context we'll be working with:
+
+```python
+{submitted_code}
+```""" if submitted_code else "We'll start from scratch with this topic."
+
+        # Fetch and prepare chat history context if conversation_id is provided
+        history_context = ""
+        if conversation_id:
+            # Get the last few messages from the previous conversation
+            previous_messages = messages.find({
+                "conversation_id": ObjectId(conversation_id),
+                "sender": {"$in": ["user", "assistant"]},  # Only user and assistant messages
+                "message.type": "text"  # Only text messages
+            }).sort("timestamp", -1).limit(3)  # Get last 3 messages
+            
+            if previous_messages:
+                history_context = "\nContext from previous conversation:\n"
+                for msg in previous_messages:
+                    role = msg["sender"]
+                    content = msg["message"]["content"]
+                    history_context += f"{role}: {content}\n"
+
+        system_prompt = f"""You are creating a focused welcome message for a Python learning session about {topic}.
+
+Your welcome message must:
+1. Be professional but approachable (avoid being overly playful or formal)
+2. Briefly acknowledge the topic
+3. ALWAYS include the code context in a Python code block
+4. After the code, provide ONE small hint or observation about the code
+5. Keep the entire message concise (max 4-5 lines total)
+
+Format:
+- Start with a brief welcome
+- Show the code block
+- End with one small hint/observation
+
+Remember:
+- No emojis or exclamation marks
+- No questions or calls to action
+- Just state what we'll be working on and provide the hint"""
+
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"""Topic: {topic}
+Code Context: {code_context}
+{history_context}
+
+Generate a welcoming message that sets the right tone for this focused learning session."""}
+            ],
+            max_tokens=500,
+            temperature=0.7,
+            top_p=0.9,
+            presence_penalty=0.6,
+            frequency_penalty=0.3
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        print(f"Error generating welcome message: {str(e)}")
+        # Fallback to a simple welcome message if generation fails
+        return f"Welcome to our session on {topic}. {code_context}"

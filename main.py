@@ -158,6 +158,7 @@ def chat_history():
         if msg["message"].get("type") == "invitation":
             message_data["_id"] = str(msg["_id"])
             message_data["accepted"] = msg["message"].get("accepted", False)
+            message_data["submitted_code"] = msg["message"].get("submitted_code")  # Include submitted_code
             
         conversation_history.append(message_data)
 
@@ -271,7 +272,7 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
     
     chat_history = load_conversation_history(conversation_id)
     chat_history.append({"role": "user", "content": user_message})
-    
+    print(chat_history)
     try:
         # Select functions based on conversation type
         if is_focused:
@@ -291,25 +292,26 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
             tool_choice="auto"
         )
 
+        # Store the assistant's message in memory first
+        assistant_message = response.choices[0].message
+        chat_history.append({
+            "role": "assistant",
+            "content": assistant_message.content if assistant_message.content else ""
+        })
+
         if response.choices[0].finish_reason == "tool_calls":
-            name = response.choices[0].message.tool_calls[0].function.name
-            args = response.choices[0].message.tool_calls[0].function.arguments
+            name = assistant_message.tool_calls[0].function.name
+            args = assistant_message.tool_calls[0].function.arguments
             
             # Handle regular propose_new_conversation for normal conversations
             result = ofc.call_function(name, args)
             gpt_response = result['gpt_response']
             topic = result.get('topic')
+            topic_proposal = result.get('topic_proposal')  # Get the formatted proposal
+            submitted_code = result.get('submitted_code')  # Get submitted_code from result
 
-            # Store the assistant's response message
-            messages.insert_one({
-                "conversation_id": ObjectId(conversation_id),
-                "user_id": user_id,
-                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-                "sender": "assistant",
-                "message": {"type": "text", "content": gpt_response}
-            })
-
-            # Store the assistant's proposal for new chat
+            # Store the assistant's response and invitation in database
+            # Only store the invitation message since it contains both the response and the invitation
             invitation_message = {
                 "conversation_id": ObjectId(conversation_id),
                 "user_id": user_id,
@@ -317,8 +319,10 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
                 "sender": "assistant",
                 "message": {
                     "type": "invitation",
-                    "content": topic,
-                    "accepted": False
+                    "content": topic,  # Just use the topic
+                    "accepted": False,
+                    "submitted_code": submitted_code,  # Include submitted_code in the message
+                    "response": gpt_response  # Include the assistant's response in the invitation message
                 }
             }
             
@@ -330,13 +334,14 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
                 "response": gpt_response,
                 "propose_new_chat": True,
                 "topic": topic,
-                "message_id": message_id
+                "message_id": message_id,
+                "submitted_code": submitted_code  # Include submitted_code in the response
             }
 
         # Standard text response
-        gpt_response = response.choices[0].message.content
+        gpt_response = assistant_message.content
 
-        # Store user message
+        # Store user message and assistant response in database
         messages.insert_one({
             "conversation_id": ObjectId(conversation_id),
             "user_id": user_id,
@@ -345,7 +350,6 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
             "message": {"type": "text", "content": user_message}
         })
 
-        # Store assistant message
         messages.insert_one({
             "conversation_id": ObjectId(conversation_id),
             "user_id": user_id,
@@ -405,6 +409,7 @@ def create_focused_conversation():
     user_id = ObjectId(session['user_id'])
     data = request.json
     topic = data.get('topic')
+    submitted_code = data.get('submitted_code')  # Get submitted code
 
     if not topic:
         return jsonify({"error": "No topic provided"}), 400
@@ -415,18 +420,19 @@ def create_focused_conversation():
         'created_at': datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
         'last_chat': datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
         'status': 'active',
-        'type': 'focused',  # Indicate this is a focused conversation
+        'type': 'focused',
         'topic': topic,
-        'is_completed': False  # Track if the problem has been completed
+        'is_completed': False,
+        'initial_code': submitted_code  # Store the initial code
     }
 
     conversation_result = conversations.insert_one(focused_conversation)
     conversation_id = conversation_result.inserted_id
 
-    # Get the system instruction using the function from openai_function_calling
+    # Get the system instruction using both topic and code
     system_instruction = {
         "role": "system",
-        "content": ofc.get_system_instruction(topic)
+        "content": ofc.get_system_instruction(topic, submitted_code)
     }
 
     # Store the system instruction
@@ -441,7 +447,7 @@ def create_focused_conversation():
         } 
     })
 
-    # Add initial message welcoming the user to the focused conversation using the propose template
+    # Add initial message welcoming the user to the focused conversation
     welcome_message = {
         "conversation_id": conversation_id,
         "user_id": user_id,
@@ -449,7 +455,11 @@ def create_focused_conversation():
         "sender": "assistant",
         "message": {
             "type": "text",
-            "content": ofc.propose_template.format(topic=topic)
+            "content": ofc.generate_welcome_message(
+                topic=topic,
+                submitted_code=submitted_code,
+                conversation_id=str(conversation_id)
+            )
         }
     }
     
@@ -470,18 +480,20 @@ def mark_invitation_accepted():
         conversation_id = data.get('conversation_id')
         message_id = data.get('message_id')
 
-        if not conversation_id:
-            return jsonify({"error": "Missing conversation_id"}), 400
+        if not conversation_id or not message_id:
+            return jsonify({"error": "Missing conversation_id or message_id"}), 400
 
-        # Validate conversation_id format
+        # Validate ObjectId format
         try:
             conv_id = ObjectId(conversation_id)
+            msg_id = ObjectId(message_id)
         except:
-            return jsonify({"error": "Invalid conversation_id format"}), 400
+            return jsonify({"error": "Invalid ID format"}), 400
 
-        # Update the message in the database
+        # Update the specific message using its ID
         result = messages.update_one(
             {
+                "_id": msg_id,
                 "conversation_id": conv_id,
                 "message.type": "invitation"
             },
