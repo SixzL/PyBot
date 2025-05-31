@@ -291,7 +291,7 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
             tools=tools,
             tool_choice="auto"
         )
-
+        print(response)
         # Store the assistant's message in memory first
         assistant_message = response.choices[0].message
         chat_history.append({
@@ -307,7 +307,6 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
             result = ofc.call_function(name, args)
             gpt_response = result['gpt_response']
             topic = result.get('topic')
-            topic_proposal = result.get('topic_proposal')  # Get the formatted proposal
             submitted_code = result.get('submitted_code')  # Get submitted_code from result
 
             # Store the assistant's response and invitation in database

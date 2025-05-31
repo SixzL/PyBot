@@ -35,12 +35,15 @@ The function will:
 - Encourage critical thinking and problem-solving
 - Guide users to discover solutions themselves
 
-IMPORTANT: For the submitted_code parameter, follow this STRICT PRIORITY ORDER:
-1. HIGHEST PRIORITY: If the user provides code in their message, use that code
-2. MEDIUM PRIORITY: If discussing an existing code example from the conversation, use that code
-3. LOWEST PRIORITY: If no code is available from priorities 1 or 2, you MUST generate a simple, beginner-friendly example that demonstrates the concept
+Parameter Usage Guidelines:
+- topic: Always required - specifies the learning focus area
+- problem_statement: Required - must directly relate to the topic and be specific enough to guide learning
+- submitted_code: For code examples, following this STRICT PRIORITY ORDER:
+  1. HIGHEST PRIORITY: If the user provides code in their message, use that code
+  2. MEDIUM PRIORITY: If discussing an existing code example from the conversation, use that code
+  3. LOWEST PRIORITY: If no code is available from priorities 1 or 2, you MUST generate a simple, beginner-friendly example that demonstrates the concept
 
-NEVER return an empty string - always provide relevant code that helps teach the concept according to the priority order above.
+NEVER return an empty string for submitted_code - always provide relevant code that helps teach the concept according to the priority order above.
 ''',
             "parameters": {
                 "type": "object",
@@ -49,12 +52,16 @@ NEVER return an empty string - always provide relevant code that helps teach the
                         "type": "string",
                         "description": "The specific topic/exercise/problem to focus on. For example, 'For Loop in Python (beginner)', 'Two Sum', 'Roman to Integer', 'Sudoku Solver'"
                     },
+                    "problem_statement": {
+                        "type": "string",
+                        "description": "A specific, well-defined problem or learning objective that directly relates to the topic. Must follow these guidelines:\n1. MUST be directly related to the specified topic\n2. MUST be specific enough to guide implementation\n3. MUST include clear requirements or expected outcomes\n\nExamples of good alignment:\nTopic: 'For Loop in Python (beginner)'\n- Good: 'Write a program to sum all even numbers from 1 to 100 using a for loop'\n- Bad: 'Create a calculator program' (too broad, not focused on for loops)\n\nTopic: 'Recursive Functions'\n- Good: 'Implement a recursive function to calculate the nth Fibonacci number'\n- Bad: 'Write a function to sort numbers' (doesn't specify recursion)\n\nTopic: 'Python Lists'\n- Good: 'Create a function that finds the second largest element in a list'\n- Bad: 'Work with data structures' (too vague, not list-specific)",
+                    },
                     "submitted_code": {
                         "type": "string",
                         "description": "The code to analyze or exercise to work on. Follow this STRICT PRIORITY ORDER:\n1. HIGHEST PRIORITY: User's submitted code if provided in their message\n2. MEDIUM PRIORITY: Relevant code from conversation context\n3. LOWEST PRIORITY: If no code is available from priorities 1 or 2, generate a beginner-friendly example that demonstrates the topic\n\nNEVER return an empty string - you MUST provide code following the priority order above.",
                     },
                 },
-                "required": ["topic", "submitted_code"]
+                "required": ["topic", "problem_statement"]
             }
         }
     }
@@ -117,8 +124,11 @@ Let me know what you'd prefer!
 """
 
 # Example function implementations
-def get_system_instruction(topic, submitted_code):
+def get_system_instruction(topic, problem_statement, submitted_code=None):
     base_instruction = f'''You are PyBot, an educational coding mentor focused specifically on teaching {topic}.
+
+Current Learning Objective:
+{problem_statement}
 
 Core Principles:
 1. QUESTION PACING
@@ -128,26 +138,29 @@ Core Principles:
 - Never overwhelm the user with multiple questions at once
 
 2. PROBLEM SCOPE
-- Focus ONLY on solving {topic} related problems
-- Immediately redirect any questions not related to {topic}
-- If user asks about other topics, politely remind them we're focusing on {topic}
+- Focus ONLY on solving the current problem statement
+- Keep discussion centered on {topic} concepts needed for the solution
+- If user asks about unrelated topics, politely redirect to the current problem
+- Guide user step-by-step towards solving {problem_statement}
 
 3. CONVERSATION FLOW
-- Start with one fundamental question about their understanding
+- Start with one fundamental question about their understanding of the problem
 - Based on their response, ask one targeted follow-up question
-- Progress systematically through concepts, one step at a time'''
+- Progress systematically through concepts needed to solve the problem
+- Ensure each step builds towards the final solution'''
 
     if submitted_code:
         code_specific_instruction = f'''
 4. CODE REVIEW APPROACH
-- Begin with a single, specific question about their code
+- Begin with a single, specific question about their code in relation to {problem_statement}
 - Examples (choose only ONE):
-  * "Could you explain how this part of your code works?"
-  * "What was your thought process for this approach?"
-  * "How does your code handle [specific case]?"
+  * "How does this part of your code address [specific aspect of problem]?"
+  * "What was your approach for implementing [specific requirement]?"
+  * "How would your solution handle [specific case from problem]?"
 
 5. IMPROVEMENT GUIDANCE
 - After receiving a complete answer to your question, provide ONE targeted hint
+- Keep hints focused on requirements from the problem statement
 - Wait for their response before offering another hint
 - Focus on one aspect of improvement at a time
 
@@ -159,43 +172,39 @@ Current Code Context:
 Remember: 
 - One question at a time
 - Wait for complete answers
-- Stay focused on the current point of discussion
+- Stay focused on the current problem statement
 - Only move to the next concept when the current one is understood
 '''
         return base_instruction + code_specific_instruction
     else:
         general_instruction = '''
 4. GUIDED DISCOVERY
-- Start with one foundational question
+- Start with one foundational question about the problem requirements
 - Wait for the user's understanding before proceeding
-- Break down complex topics into single, manageable steps
+- Break down the problem into single, manageable steps
 - Use the Socratic method with ONE question at a time
 
 5. LEARNING VALIDATION
-- Ask ONE specific question to verify understanding
+- Ask ONE specific question to verify understanding of each requirement
 - If understanding is incomplete, stay on that topic
 - Only progress when current concept is clear
 - Focus on depth over breadth
 '''
         return base_instruction + general_instruction
 
-def propose_new_conversation(topic, submitted_code):
+def propose_new_conversation(topic, problem_statement, submitted_code=None):
     print("OFC: propose_new_conversation")
     print(f"\n\n\nTopic: {topic}")
+    print(f"Problem Statement: {problem_statement}")
     print(f"Submitted Code:\n{submitted_code}")
     
-    # Format code section for the template
-    code_section = f"""Here's the code we'll be working with:
-
-```python
-{submitted_code}
-```""" if submitted_code else ""
-    
     # Get context-aware system instruction
-    system_instruction = get_system_instruction(topic, submitted_code)
+    system_instruction = get_system_instruction(topic, problem_statement, submitted_code)
     
     try:
-        prompt = f"""Based on the provided system instruction and code:
+        prompt = f"""Based on the provided system instruction and problem statement:
+
+Problem: {problem_statement}
 
 1. If this is user-submitted code or code from conversation:
    - Start by asking 2-3 questions about the current implementation
@@ -229,6 +238,7 @@ Remember:
 
         return {
             "topic": topic,
+            "problem_statement": problem_statement,
             "submitted_code": submitted_code,
             "gpt_response": response.choices[0].message.content,
             "invite": True,
