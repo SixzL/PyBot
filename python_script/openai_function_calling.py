@@ -58,7 +58,7 @@ NEVER return an empty string for submitted_code - always provide relevant code t
                     },
                     "submitted_code": {
                         "type": "string",
-                        "description": "The code to analyze or exercise to work on. Follow this STRICT PRIORITY ORDER:\n1. HIGHEST PRIORITY: User's submitted code if provided in their message\n2. MEDIUM PRIORITY: Relevant code from conversation context\n3. LOWEST PRIORITY: If no code is available from priorities 1 or 2, generate a beginner-friendly example that demonstrates the topic\n\nNEVER return an empty string - you MUST provide code following the priority order above.",
+                        "description": "ONLY use code that was directly provided by the user in their message. Do not generate example code or use code from elsewhere in the conversation.\n\nIf the user has not provided any code in their message, this should be an empty string.\n\nThis parameter is meant to capture the user's actual code attempt, even if it contains bugs or errors, as it will be used as a starting point for the learning discussion.",
                     },
                 },
                 "required": ["topic", "problem_statement"]
@@ -199,48 +199,48 @@ def propose_new_conversation(topic, problem_statement, submitted_code=None):
     print(f"Submitted Code:\n{submitted_code}")
     
     # Get context-aware system instruction
-    system_instruction = get_system_instruction(topic, problem_statement, submitted_code)
+    #system_instruction = get_system_instruction(topic, problem_statement, submitted_code)
     
     try:
-        prompt = f"""Based on the provided system instruction and problem statement:
+#         prompt = f"""Based on the provided system instruction and problem statement:
 
-Problem: {problem_statement}
+# Problem: {problem_statement}
 
-1. If this is user-submitted code or code from conversation:
-   - Start by asking 2-3 questions about the current implementation
-   - Guide them to discover potential improvements through hints
-   - Help them think about edge cases and testing
-   - Focus on {topic}-specific optimizations
+# 1. If this is user-submitted code or code from conversation:
+#    - Start by asking 2-3 questions about the current implementation
+#    - Guide them to discover potential improvements through hints
+#    - Help them think about edge cases and testing
+#    - Focus on {topic}-specific optimizations
 
-2. If this is a generated exercise:
-   - Explain why this exercise is good for learning {topic}
-   - Break down the key concepts they'll need to understand
-   - Provide initial hints about approaching the problem
-   - Suggest what they should think about before starting
+# 2. If this is a generated exercise:
+#    - Explain why this exercise is good for learning {topic}
+#    - Break down the key concepts they'll need to understand
+#    - Provide initial hints about approaching the problem
+#    - Suggest what they should think about before starting
 
-Remember: 
-- No direct solutions - use questions and hints to guide discovery
-- Focus on understanding and learning rather than just completing the task
-- Help them develop problem-solving skills"""
-
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=1500,
-            temperature=0.3,
-            top_p=0.9,
-            presence_penalty=0.6,
-            frequency_penalty=0.3,
-        )
+# Remember: 
+# - No direct solutions - use questions and hints to guide discovery
+# - Focus on understanding and learning rather than just completing the task
+# - Help them develop problem-solving skills"""
+#         print(f"Prompt: {prompt}")
+        # response = openai.chat.completions.create(
+        #     model="gpt-4o-mini",
+        #     messages=[
+        #         {"role": "system", "content": system_instruction},
+        #         {"role": "user", "content": prompt}
+        #     ],
+        #     max_tokens=1500,
+        #     temperature=0.3,
+        #     top_p=0.9,
+        #     presence_penalty=0.6,
+        #     frequency_penalty=0.3,
+        # )
 
         return {
             "topic": topic,
             "problem_statement": problem_statement,
             "submitted_code": submitted_code,
-            "gpt_response": response.choices[0].message.content,
+            #"gpt_response": response.choices[0].message.content, #TEMPORARY
             "invite": True,
             "is_focused": False  # This is not a focused conversation yet
         }
@@ -289,7 +289,7 @@ def call_function(name, args_str):
         print(f"Unknown function: {name}")
         return {"error": f"Unknown function: {name}"}
 
-def generate_welcome_message(topic, submitted_code=None, conversation_id=None):
+def generate_welcome_message(topic, submitted_code=None, problem_statement=None, conversation_id=None):
     """Generate a personalized welcome message for a focused conversation."""
     try:
         # Format code section for context
@@ -298,6 +298,9 @@ def generate_welcome_message(topic, submitted_code=None, conversation_id=None):
 ```python
 {submitted_code}
 ```""" if submitted_code else "We'll start from scratch with this topic."
+
+        # Add problem statement context if available
+        problem_context = f"\nProblem Statement:\n{problem_statement}" if problem_statement else ""
 
         # Fetch and prepare chat history context if conversation_id is provided
         history_context = ""
@@ -316,30 +319,56 @@ def generate_welcome_message(topic, submitted_code=None, conversation_id=None):
                     content = msg["message"]["content"]
                     history_context += f"{role}: {content}\n"
 
-        system_prompt = f"""You are creating a focused welcome message for a Python learning session about {topic}.
+        system_prompt = f"""You are creating a focused welcome message for a Python learning session.
+
+Context:
+Topic: {topic}
+Problem Statement: {problem_statement}
+User's Code: {f'''```python\n{submitted_code}\n```''' if submitted_code else 'No code provided yet'}
+
+IMPORTANT: 
+1. NEVER provide solutions or direct answers to the problem! Your role is to guide the learning process.
+2. If code is provided, it is the user's attempt - treat it as a starting point for discussion, even if it has bugs.
+3. ALWAYS ask only ONE question at a time - wait for user's response before proceeding.
 
 Your welcome message must:
 1. Be professional but approachable (avoid being overly playful or formal)
-2. Briefly acknowledge the topic
-3. ALWAYS include the code context in a Python code block
-4. After the code, provide ONE small hint or observation about the code
-5. Keep the entire message concise (max 4-5 lines total)
+2. Briefly acknowledge the topic and state the problem as a learning objective
+3. If user provided code: Show it and acknowledge their attempt without correcting it
+4. If no user code: Start with a fundamental question about the problem requirements
+5. End with ONE specific question to begin the learning process
+6. Keep the entire message concise (max 4-5 lines total)
 
 Format:
 - Start with a brief welcome
-- Show the code block
-- End with one small hint/observation
+- Present the problem statement as a learning challenge
+- If user provided code: Show it as their starting point
+- End with ONE focused question to guide their thinking
+
+Question Guidelines:
+- Ask only ONE question at a time
+- Make each question specific and focused
+- Wait for the user's complete answer before asking the next question
+- If the user's answer is incomplete, follow up on that specific point
+- Never overwhelm with multiple questions
+- For code attempts: Ask about their approach or specific part of their code
+- For no code: Ask about their understanding of the problem requirements
 
 Remember:
 - No emojis or exclamation marks
-- No questions or calls to action
-- Just state what we'll be working on and provide the hint"""
+- No direct answers or solutions
+- No code corrections or improvements
+- No example code if user hasn't provided any
+- Focus on guiding the learning process through ONE question at a time
+- Help users discover the solution themselves
+- Keep questions conceptual rather than implementation-specific"""
 
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"""Topic: {topic}
+{problem_context}
 Code Context: {code_context}
 {history_context}
 
@@ -357,4 +386,9 @@ Generate a welcoming message that sets the right tone for this focused learning 
     except Exception as e:
         print(f"Error generating welcome message: {str(e)}")
         # Fallback to a simple welcome message if generation fails
-        return f"Welcome to our session on {topic}. {code_context}"
+        welcome_text = f"Welcome to our session on {topic}."
+        if problem_statement:
+            welcome_text += f"\n\nProblem Statement:\n{problem_statement}"
+        if submitted_code:
+            welcome_text += f"\n\n{code_context}"
+        return welcome_text

@@ -49,13 +49,13 @@ header {
   margin-right: 20%;
 }
 
-.test {
+.msgBox {
   max-width: 100%;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
 }
 
-.test:hover {
+.msgBox:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
@@ -210,6 +210,19 @@ span.token.operator {
   border-radius: 8px !important;
   background: #f5f2f0 !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  white-space: pre !important;
+  tab-size: 4 !important;
+  -moz-tab-size: 4 !important;
+  -o-tab-size: 4 !important;
+}
+
+.code-block pre {
+  margin: 0 !important;
+  padding: 0 !important;
+  white-space: pre !important;
+  tab-size: 4 !important;
+  -moz-tab-size: 4 !important;
+  -o-tab-size: 4 !important;
 }
 
 .code-block code {
@@ -222,6 +235,8 @@ span.token.operator {
   word-spacing: normal !important;
   word-break: normal !important;
   tab-size: 4 !important;
+  -moz-tab-size: 4 !important;
+  -o-tab-size: 4 !important;
   hyphens: none !important;
   padding: 0 !important;
   margin: 0 !important;

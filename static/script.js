@@ -97,81 +97,12 @@ $(document).ready(function () {
     });
   }
 
-  function appendInvite(topic, submittedCode = "", messageId = null) {
-    const chatMessages = $("#chat-messages");
-    const messageDiv = $("<div>")
-      .addClass("d-flex mb-2")
-      .addClass("justify-content-start");
-
-    const messageContent = `
-      <div class="test py-2 px-3 rounded bg-light text-dark">
-          ${topic}
-          <div class="mt-2">
-            <button class="btn btn-primary btn-sm learn-more-btn" 
-                    data-topic="${encodeURIComponent(topic)}"
-                    data-submitted-code="${encodeURIComponent(submittedCode)}"
-                    data-message-id="${messageId || ""}">
-              <i class="fa-solid fa-book-open me-1"></i> Learn more
-            </button>
-          </div>
-      </div>
-    `;
-
-    messageDiv.html(messageContent);
-    chatMessages.append(messageDiv);
-    chatMessages.scrollTop(chatMessages[0].scrollHeight);
-
-    // Add event listener to the newly created button using the messageDiv to scope the selection
-    const button = messageDiv.find(".learn-more-btn");
-    button.on("click", function () {
-      const topicData = decodeURIComponent($(this).data("topic"));
-      const submittedCode = decodeURIComponent($(this).data("submitted-code"));
-      const messageId = $(this).data("message-id");
-
-      if (!messageId) {
-        showErrorToast("Cannot process invitation: missing message ID");
-        return;
-      }
-
-      // Disable the button immediately to prevent double clicks
-      $(this).prop("disabled", true);
-
-      // First mark the invitation as accepted
-      $.ajax({
-        url: "/mark-invitation-accepted",
-        method: "POST",
-        contentType: "application/json",
-        data: JSON.stringify({
-          conversation_id: activeConversationId,
-          message_id: messageId,
-        }),
-        success: () => {
-          // Update button text
-          $(this).text("Already started");
-          // Then create the focused conversation
-          createFocusedConversation(topicData, submittedCode)
-            .then(() => {
-              // Keep button disabled on success
-              $(this).prop("disabled", true).text("Already started");
-            })
-            .catch(() => {
-              // If focused conversation creation fails, re-enable the button
-              $(this).prop("disabled", false).text("Learn more");
-            });
-        },
-        error: (xhr) => {
-          // Re-enable the button on error
-          $(this).prop("disabled", false).text("Learn more");
-          showErrorToast(
-            xhr.responseJSON?.error || "Failed to update invitation status"
-          );
-        },
-      });
-    });
-  }
-
   // Function to create a new focused conversation
-  function createFocusedConversation(topic, submittedCode = null) {
+  function createFocusedConversation(
+    topic,
+    submittedCode = null,
+    problemStatement = null
+  ) {
     return new Promise((resolve, reject) => {
       showLoadingOverlay("Creating new focused conversation...");
 
@@ -182,6 +113,7 @@ $(document).ready(function () {
         data: JSON.stringify({
           topic: topic,
           submitted_code: submittedCode,
+          problem_statement: problemStatement,
         }),
         success: function (response) {
           hideLoadingOverlay();
@@ -238,7 +170,7 @@ $(document).ready(function () {
     if (message.type === "invitation") {
       // Create invitation message with button
       messageContent = `
-            <div class="test py-2 px-3 rounded bg-light text-dark">
+            <div class="msgBox py-2 px-3 rounded bg-light text-dark">
                 ${message.content}
                 <div class="mt-2">
                     <button class="btn btn-primary btn-sm learn-more-btn" 
@@ -246,6 +178,9 @@ $(document).ready(function () {
                             data-topic="${encodeURIComponent(message.content)}"
                             data-submitted-code="${encodeURIComponent(
                               message.submitted_code || ""
+                            )}"
+                            data-problem="${encodeURIComponent(
+                              message.problem_statement || ""
                             )}"
                             data-message-id="${message._id || ""}">
                         <i class="fa-solid fa-book-open me-1"></i> 
@@ -256,15 +191,11 @@ $(document).ready(function () {
         `;
     } else {
       // Regular message
-      messageContent = `
-            <div class="test py-2 px-3 rounded ${
+      messageContent = `<div class="msgBox py-2 px-3 rounded ${
               message.role === "user"
                 ? "bg-primary text-white"
                 : "bg-light text-dark"
-            }">
-                ${formatMessage(message.content)}
-            </div>
-        `;
+            }" style="white-space: pre-wrap;">${formatMessage(message.content)}</div>`;
     }
 
     messageDiv.html(messageContent);
@@ -288,10 +219,10 @@ $(document).ready(function () {
             $(this).data("submitted-code")
           );
           const messageId = $(this).data("message-id");
+          const problemStatement = decodeURIComponent($(this).data("problem"));
 
-          // First mark the invitation as accepted
-          if (!activeConversationId) {
-            showErrorToast("No active conversation found");
+          if (!messageId) {
+            showErrorToast("Cannot process invitation: missing message ID");
             return;
           }
 
@@ -311,7 +242,11 @@ $(document).ready(function () {
               // Update button text
               button.text("Already started");
               // Then create the focused conversation
-              createFocusedConversation(topicData, submittedCode)
+              createFocusedConversation(
+                topicData,
+                submittedCode,
+                problemStatement
+              )
                 .then(() => {
                   // Keep button disabled on success
                   button.prop("disabled", true).text("Already started");
@@ -419,6 +354,7 @@ $(document).ready(function () {
             type: "invitation",
             content: response.topic,
             submitted_code: response.submitted_code || "",
+            problem_statement: response.problem_statement, // Pass problem statement directly without fallback
             _id: response.message_id,
           });
         }
@@ -507,9 +443,10 @@ $(document).ready(function () {
 });
 
 function formatMessage(content) {
+  console.log(content)
   // Escape HTML special characters
   let escapedMessage = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
+  console.log("escapedMessage: "+escapedMessage)
   // Detect language & wrap code blocks with Prism.js classes
   const formattedMessage = escapedMessage.replace(
     /```(\w*)\n([\s\S]*?)```/g,
@@ -528,8 +465,11 @@ function formatMessage(content) {
     }
   );
 
+  console.log("formattedMessage: "+formattedMessage)
   // Format Markdown-style text (outside of code blocks)
   const finalMessage = formattedMessage
+    // Convert LaTeX-style variables to code format
+    .replace(/\\\(\s*(.*?)\s*\\\)/g, "`$1`") // Convert \( n \) to `n` (trim spaces)
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold
     .replace(/`([^`\n]+)`/g, "<code>$1</code>") // Inline code
     .replace(/###\s+(.*?)(\n|$)/g, "<h3>$1</h3>") // Headings
@@ -537,6 +477,7 @@ function formatMessage(content) {
     .replace(/\n/g, "<br>") // Line breaks
     .trim();
 
+  console.log("finalMessage: "+finalMessage)
   return finalMessage;
 }
 

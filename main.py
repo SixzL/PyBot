@@ -291,26 +291,72 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
             tools=tools,
             tool_choice="auto"
         )
-        print(response)
+        print(f"response: {response}")
         # Store the assistant's message in memory first
         assistant_message = response.choices[0].message
-        chat_history.append({
-            "role": "assistant",
-            "content": assistant_message.content if assistant_message.content else ""
-        })
+        #print(f"assistant_message: {assistant_message}")
+        if assistant_message.content:
+            chat_history.append({
+                "role": "assistant",
+                "content": assistant_message.content })
+
+        print(f"chat history: {chat_history}")
 
         if response.choices[0].finish_reason == "tool_calls":
             name = assistant_message.tool_calls[0].function.name
             args = assistant_message.tool_calls[0].function.arguments
             
+            tool_calls = response.choices[0].message.tool_calls
+            call_id = tool_calls[0].id
+            print(call_id)
+
             # Handle regular propose_new_conversation for normal conversations
             result = ofc.call_function(name, args)
-            gpt_response = result['gpt_response']
-            topic = result.get('topic')
-            submitted_code = result.get('submitted_code')  # Get submitted_code from result
 
-            # Store the assistant's response and invitation in database
-            # Only store the invitation message since it contains both the response and the invitation
+            chat_history.append({
+                "role": "function",
+                "name": name,
+                "content": str(result)
+            })
+
+            gpt_response = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=chat_history,
+                max_tokens=1500,
+                temperature=0.3,
+                top_p=0.9,
+                presence_penalty=0.6,
+                frequency_penalty=0.3,
+            )
+
+            # Extract just the message content from the response
+            gpt_response_content = gpt_response.choices[0].message.content
+
+            #gpt_response = result['gpt_response'] #TEMPORARY
+            topic = result.get('topic')
+            submitted_code = result.get('submitted_code')  # Get submitted_code from 
+            problem_statement = result.get('problem_statement')  # Get problem statement from result
+
+            # Store all messages in chronological order
+            # 1. User's message
+            messages.insert_one({
+                "conversation_id": ObjectId(conversation_id),
+                "user_id": user_id,
+                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                "sender": "user",
+                "message": {"type": "text", "content": user_message}
+            })
+
+            # 2. Assistant's response
+            messages.insert_one({
+                "conversation_id": ObjectId(conversation_id),
+                "user_id": user_id,
+                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                "sender": "assistant",
+                "message": {"type": "text", "content": gpt_response_content}
+            })
+
+            # 3. The invitation message
             invitation_message = {
                 "conversation_id": ObjectId(conversation_id),
                 "user_id": user_id,
@@ -321,7 +367,7 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
                     "content": topic,  # Just use the topic
                     "accepted": False,
                     "submitted_code": submitted_code,  # Include submitted_code in the message
-                    "response": gpt_response  # Include the assistant's response in the invitation message
+                    "problem_statement": problem_statement# Include problem statement
                 }
             }
             
@@ -330,17 +376,18 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
             message_id = str(message_result.inserted_id)
 
             return {
-                "response": gpt_response,
+                "response": gpt_response_content,
                 "propose_new_chat": True,
                 "topic": topic,
                 "message_id": message_id,
-                "submitted_code": submitted_code  # Include submitted_code in the response
+                "submitted_code": submitted_code,  # Include submitted_code in the response
+                "problem_statement": problem_statement  # Include problem statement
             }
 
         # Standard text response
-        gpt_response = assistant_message.content
+        gpt_response_content = assistant_message.content
 
-        # Store user message and assistant response in database
+        # Store both user message and assistant response in database
         messages.insert_one({
             "conversation_id": ObjectId(conversation_id),
             "user_id": user_id,
@@ -354,11 +401,11 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
             "user_id": user_id,
             "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
             "sender": "assistant",
-            "message": {"type": "text", "content": gpt_response}
+            "message": {"type": "text", "content": gpt_response_content}
         })
 
         return {
-            "response": gpt_response,
+            "response": gpt_response_content,
             "propose_new_chat": False,
             "topic": None
         }
@@ -409,6 +456,7 @@ def create_focused_conversation():
     data = request.json
     topic = data.get('topic')
     submitted_code = data.get('submitted_code')  # Get submitted code
+    problem_statement = data.get('problem_statement')  # Get problem statement
 
     if not topic:
         return jsonify({"error": "No topic provided"}), 400
@@ -421,6 +469,7 @@ def create_focused_conversation():
         'status': 'active',
         'type': 'focused',
         'topic': topic,
+        'problem_statement': problem_statement,  # Store the problem statement
         'is_completed': False,
         'initial_code': submitted_code  # Store the initial code
     }
@@ -428,10 +477,10 @@ def create_focused_conversation():
     conversation_result = conversations.insert_one(focused_conversation)
     conversation_id = conversation_result.inserted_id
 
-    # Get the system instruction using both topic and code
+    # Get the system instruction using topic, code, and problem statement
     system_instruction = {
         "role": "system",
-        "content": ofc.get_system_instruction(topic, submitted_code)
+        "content": ofc.get_system_instruction(topic, problem_statement, submitted_code)
     }
 
     # Store the system instruction
@@ -457,6 +506,7 @@ def create_focused_conversation():
             "content": ofc.generate_welcome_message(
                 topic=topic,
                 submitted_code=submitted_code,
+                problem_statement=problem_statement,
                 conversation_id=str(conversation_id)
             )
         }
