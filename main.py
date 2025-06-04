@@ -103,7 +103,6 @@ def update_last_conversation(user_id):
 
 @app.route('/')
 def home():
-    print(123)
     if 'user_id' not in session:
         return redirect(url_for('login_page'))
     return render_template('index.html', conversation_id=None)
@@ -255,6 +254,7 @@ def continue_conversation(conversation_id):
     )
 
     # Continue processing as a normal chat
+    print("before continue_conversation_logic")
     result = continue_conversation_logic(user_id, conversation_id, user_message)
     result["conversation_id"] = str(conversation_id)
     return jsonify(result)
@@ -267,6 +267,8 @@ def view_conversation_page(conversation_id):
     
 def continue_conversation_logic(user_id, conversation_id, user_message):
     # Check if this is a focused conversation
+
+    print("in continue_conversation_logic")
     conversation = conversations.find_one({'_id': ObjectId(conversation_id)})
     is_focused = conversation and conversation.get('type') == 'focused'
     
@@ -279,6 +281,8 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
             tools = ofc.focused_functions
         else:
             tools = ofc.normal_functions
+
+        print(f"tools: {tools}")
 
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
@@ -294,7 +298,6 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
         print(f"response: {response}")
         # Store the assistant's message in memory first
         assistant_message = response.choices[0].message
-        #print(f"assistant_message: {assistant_message}")
         if assistant_message.content:
             chat_history.append({
                 "role": "assistant",
@@ -302,6 +305,7 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
 
         print(f"chat history: {chat_history}")
 
+        print(f"\n\n\nfinish reason: {response.choices[0].finish_reason}\n\n\n")
         if response.choices[0].finish_reason == "tool_calls":
             name = assistant_message.tool_calls[0].function.name
             args = assistant_message.tool_calls[0].function.arguments
@@ -310,7 +314,7 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
             call_id = tool_calls[0].id
             print(call_id)
 
-            # Handle regular propose_new_conversation for normal conversations
+            # Call the function and get result
             result = ofc.call_function(name, args)
 
             chat_history.append({
@@ -332,57 +336,190 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
             # Extract just the message content from the response
             gpt_response_content = gpt_response.choices[0].message.content
 
-            #gpt_response = result['gpt_response'] #TEMPORARY
-            topic = result.get('topic')
-            submitted_code = result.get('submitted_code')  # Get submitted_code from 
-            problem_statement = result.get('problem_statement')  # Get problem statement from result
+            if name == "propose_new_conversation":
+                topic = result.get('topic')
+                submitted_code = result.get('submitted_code')
+                problem_statement = result.get('problem_statement')
 
-            # Store all messages in chronological order
-            # 1. User's message
-            messages.insert_one({
-                "conversation_id": ObjectId(conversation_id),
-                "user_id": user_id,
-                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-                "sender": "user",
-                "message": {"type": "text", "content": user_message}
-            })
+                # Store all messages in chronological order
+                # 1. User's message
+                messages.insert_one({
+                    "conversation_id": ObjectId(conversation_id),
+                    "user_id": user_id,
+                    "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                    "sender": "user",
+                    "message": {"type": "text", "content": user_message}
+                })
 
-            # 2. Assistant's response
-            messages.insert_one({
-                "conversation_id": ObjectId(conversation_id),
-                "user_id": user_id,
-                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-                "sender": "assistant",
-                "message": {"type": "text", "content": gpt_response_content}
-            })
+                # 2. Assistant's response
+                messages.insert_one({
+                    "conversation_id": ObjectId(conversation_id),
+                    "user_id": user_id,
+                    "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                    "sender": "assistant",
+                    "message": {"type": "text", "content": gpt_response_content}
+                })
 
-            # 3. The invitation message
-            invitation_message = {
-                "conversation_id": ObjectId(conversation_id),
-                "user_id": user_id,
-                "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-                "sender": "assistant",
-                "message": {
-                    "type": "invitation",
-                    "content": topic,  # Just use the topic
-                    "accepted": False,
-                    "submitted_code": submitted_code,  # Include submitted_code in the message
-                    "problem_statement": problem_statement# Include problem statement
+                # 3. The invitation message
+                invitation_message = {
+                    "conversation_id": ObjectId(conversation_id),
+                    "user_id": user_id,
+                    "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                    "sender": "assistant",
+                    "message": {
+                        "type": "invitation",
+                        "content": topic,
+                        "accepted": False,
+                        "submitted_code": submitted_code,
+                        "problem_statement": problem_statement
+                    }
                 }
-            }
-            
-            # Insert the message and get its ID
-            message_result = messages.insert_one(invitation_message)
-            message_id = str(message_result.inserted_id)
+                
+                # Insert the message and get its ID
+                message_result = messages.insert_one(invitation_message)
+                message_id = str(message_result.inserted_id)
 
-            return {
-                "response": gpt_response_content,
-                "propose_new_chat": True,
-                "topic": topic,
-                "message_id": message_id,
-                "submitted_code": submitted_code,  # Include submitted_code in the response
-                "problem_statement": problem_statement  # Include problem statement
-            }
+                return {
+                    "response": gpt_response_content,
+                    "propose_new_chat": True,
+                    "topic": topic,
+                    "message_id": message_id,
+                    "submitted_code": submitted_code,
+                    "problem_statement": problem_statement
+                }
+
+            elif name == "problem_solved":
+                # For focused conversations, override the arguments with our stored values
+                focused_topic = conversation.get('topic')
+                focused_problem = conversation.get('problem_statement')
+                focused_code = conversation.get('initial_code') 
+
+                # First mark the current conversation as completed
+                conversations.update_one(
+                    {'_id': ObjectId(conversation_id)},
+                    {
+                        '$set': {
+                            'status': 'completed',
+                            'is_completed': True,
+                            'completed_at': datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))
+                        }
+                    }
+                )
+
+                # Get the last 3 messages from the conversation
+                previous_messages = messages.find({
+                    "conversation_id": ObjectId(conversation_id),
+                    "sender": {"$in": ["user", "assistant"]},  # Only user and assistant messages
+                    "message.type": "text"  # Only text messages
+                }).sort("timestamp", -1).limit(3)
+
+                # Format the messages into a history string
+                history_context = ""
+                if previous_messages:
+                    history_context = "\nContext from previous messages:\n"
+                    for msg in previous_messages:
+                        role = msg["sender"]
+                        content = msg["message"]["content"]
+                        history_context += f"{role}: {content}\n"
+
+                args = json.dumps({
+                    "topic": focused_topic,
+                    "current_problem": focused_problem,
+                    "submitted_code": focused_code,  # Changed from solution_code to submitted_code
+                    "history_context": history_context  # Add conversation history context
+                })
+                # Call the function again with our arguments
+                result = ofc.call_function(name, args)
+
+                # Handle problem solved case
+                if "error" in result:
+                    # If there was an error in problem_solved function
+                    return {
+                        "response": f"Error: {result['error']}",
+                        "propose_new_chat": False,
+                        "topic": None
+                    }
+
+                # Store messages in chronological order
+                # 1. User's message
+                messages.insert_one({
+                    "conversation_id": ObjectId(conversation_id),
+                    "user_id": user_id,
+                    "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                    "sender": "user",
+                    "message": {"type": "text", "content": user_message}
+                })
+
+                # 2. Assistant's response
+                messages.insert_one({
+                    "conversation_id": ObjectId(conversation_id),
+                    "user_id": user_id,
+                    "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                    "sender": "assistant",
+                    "message": {"type": "text", "content": gpt_response_content}
+                })
+
+                # 3. The next challenge message
+                next_challenge_message = {
+                    "conversation_id": ObjectId(conversation_id),
+                    "user_id": user_id,
+                    "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                    "sender": "assistant",
+                    "message": {
+                        "type": "invitation",
+                        "content": result.get('topic'),
+                        "accepted": False,
+                        "submitted_code": None,  # Start fresh for the new problem
+                        "problem_statement": result.get('next_challenge')
+                    }
+                }
+                
+                # Insert the message and get its ID
+                message_result = messages.insert_one(next_challenge_message)
+                message_id = str(message_result.inserted_id)
+
+                return {
+                    "response": gpt_response_content,
+                    "propose_new_chat": True,
+                    "topic": result.get('topic'),
+                    "message_id": message_id,
+                    "submitted_code": None,
+                    "problem_statement": result.get('next_challenge')
+                }
+
+            elif name == "redefine_problem":
+                # Call the function with the conversation ID
+                result = ofc.call_function(name, args)
+
+                if "error" in result:
+                    return {
+                        "response": f"Error: {result['error']}",
+                        "propose_new_chat": False,
+                        "topic": None
+                    }
+
+                # Store messages in chronological order
+                # 1. User's message
+                messages.insert_one({
+                    "conversation_id": ObjectId(conversation_id),
+                    "user_id": user_id,
+                    "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                    "sender": "user",
+                    "message": {"type": "text", "content": user_message}
+                })
+
+                # 2. Assistant's response with the refined problem
+                messages.insert_one({
+                    "conversation_id": ObjectId(conversation_id),
+                    "user_id": user_id,
+                    "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
+                    "sender": "assistant",
+                    "message": {"type": "text", "content": gpt_response_content}
+                })
+
+                return {
+                    "response": gpt_response_content,
+                }
 
         # Standard text response
         gpt_response_content = assistant_message.content
@@ -469,9 +606,10 @@ def create_focused_conversation():
         'status': 'active',
         'type': 'focused',
         'topic': topic,
-        'problem_statement': problem_statement,  # Store the problem statement
+        'problem_statement': problem_statement,
         'is_completed': False,
-        'initial_code': submitted_code  # Store the initial code
+        'initial_code': submitted_code,  # Store the initial code
+        'title': f"Learning: {topic}"  # Add a title for the focused conversation
     }
 
     conversation_result = conversations.insert_one(focused_conversation)

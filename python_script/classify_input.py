@@ -165,31 +165,47 @@ def generate_prompt(messages):
     )
     return response.choices[0].message.content
 
+def is_palindrome(nums):
+    nums = str(nums)
+    for n in range(len(nums) // 2):
+        if nums[n] != nums[len(nums) - n - 1]:
+            return False
+        
+    return True
+
+
 if __name__ == "__main__":
-    user_input = """def oddOrEven(n):
-                        for i in range(n):
-                            if n%2 == 1:
-                                print(f"{n} is odd")
-                            else:
-                                print(f"{n} is even")
+    # user_input = """def oddOrEven(n):
+    #                     for i in range(n):
+    #                         if n%2 == 1:
+    #                             print(f"{n} is odd")
+    #                         else:
+    #                             print(f"{n} is even")
 
-                    oddOrEven(10)
+    #                 oddOrEven(10)
 
-                    Why not working
-                """
+    #                 Why not working
+    #             """
 
 
 
-    inputClass = classify_input([{"role": "user", "content":classification_prompt.format(user_input=user_input)}])
+    # inputClass = classify_input([{"role": "user", "content":classification_prompt.format(user_input=user_input)}])
 
-    # print(classification_prompt.format(user_input=user_input))
+    # # print(classification_prompt.format(user_input=user_input))
 
-    print(inputClass)
+    # print(inputClass)
 
-    meta_prompt = select_metaprompt(inputClass)
+    # meta_prompt = select_metaprompt(inputClass)
 
-    print(meta_prompt.format(user_input=user_input))
+    # print(meta_prompt.format(user_input=user_input))
 
-    refinedPrompt = generate_prompt([{"role": "user", "content":meta_prompt.format(user_input=user_input)}])
+    # refinedPrompt = generate_prompt([{"role": "user", "content":meta_prompt.format(user_input=user_input)}])
 
-    print(refinedPrompt)
+    # print(refinedPrompt)
+
+
+
+    nums = 121
+
+    print(is_palindrome(nums))
+

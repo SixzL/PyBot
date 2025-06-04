@@ -443,10 +443,9 @@ $(document).ready(function () {
 });
 
 function formatMessage(content) {
-  console.log(content)
   // Escape HTML special characters
   let escapedMessage = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  console.log("escapedMessage: "+escapedMessage)
+
   // Detect language & wrap code blocks with Prism.js classes
   const formattedMessage = escapedMessage.replace(
     /```(\w*)\n([\s\S]*?)```/g,
@@ -465,7 +464,7 @@ function formatMessage(content) {
     }
   );
 
-  console.log("formattedMessage: "+formattedMessage)
+
   // Format Markdown-style text (outside of code blocks)
   const finalMessage = formattedMessage
     // Convert LaTeX-style variables to code format
@@ -477,7 +476,7 @@ function formatMessage(content) {
     .replace(/\n/g, "<br>") // Line breaks
     .trim();
 
-  console.log("finalMessage: "+finalMessage)
+
   return finalMessage;
 }
 
