@@ -2,8 +2,61 @@ let activeConversationId = initialConversationId || null;
 let isNewConversation = !activeConversationId;
 
 $(document).ready(function () {
+  // Mobile Sidebar Toggle
+  const sidebarToggle = $("#sidebar-toggle");
+  const sidebarContainer = $("#sidebar-container");
+  const body = $("body");
+
+  // Create overlay element
+  const overlay = $('<div class="sidebar-overlay"></div>');
+  body.append(overlay);
+
+  // Toggle sidebar
+  sidebarToggle.on("click", function() {
+    sidebarContainer.toggleClass("show");
+    overlay.toggleClass("show");
+  });
+
+  // Close sidebar when clicking overlay
+  overlay.on("click", function() {
+    sidebarContainer.removeClass("show");
+    overlay.removeClass("show");
+  });
+
+  // Close sidebar when clicking a link (for mobile)
+  $("#sidebar a").on("click", function() {
+    if (window.innerWidth < 768) {
+      sidebarContainer.removeClass("show");
+      overlay.removeClass("show");
+    }
+  });
+
+  // Handle conversation link clicks
+  $(document).on("click", "#sidebar .nav-link", function(e) {
+    e.preventDefault();
+    const conversationId = $(this).data("conversation-id");
+    
+    // Update URL without reloading
+    window.history.pushState(null, "", `/conversation/${conversationId}`);
+    
+    // Update active state
+    $("#sidebar .nav-link").removeClass("active");
+    $(this).addClass("active");
+    
+    // Load conversation
+    activeConversationId = conversationId;
+    isNewConversation = false;
+    loadConversationContent(conversationId);
+    
+    // Close mobile sidebar if needed
+    if (window.innerWidth < 768) {
+      sidebarContainer.removeClass("show");
+      overlay.removeClass("show");
+    }
+  });
+
   // Initialize sidebar
-  updateSidebarConversations();
+  updateConversationList();
 
   if (activeConversationId) {
     loadConversationContent(activeConversationId);
@@ -50,9 +103,16 @@ $(document).ready(function () {
 
   // Load conversation history when the page loads
   function loadConversationContent(conversationId) {
+    if (!conversationId) return;
+
+    // Clear current messages and hide welcome
     $("#chat-messages").empty();
     $("#welcome-msg").hide();
 
+    // Show loading state
+    showLoadingOverlay("Loading conversation...");
+
+    // Update conversation title
     updateConversationTitle(conversationId);
 
     $.ajax({
@@ -61,8 +121,16 @@ $(document).ready(function () {
       contentType: "application/json",
       data: JSON.stringify({ conversation_id: conversationId }),
       success: function (response) {
-        if (response.history.length > 0) {
-          response.history.forEach((msg) => appendMessage(msg));
+        hideLoadingOverlay();
+        
+        if (response.history && response.history.length > 0) {
+          response.history.forEach((msg) => {
+            appendMessage(msg);
+          });
+          
+          // Scroll to bottom after messages are loaded
+          const chatMessages = $("#chat-messages");
+          chatMessages.scrollTop(chatMessages[0].scrollHeight);
         }
         
         // Check if conversation is completed
@@ -78,10 +146,15 @@ $(document).ready(function () {
             } else {
               enableInput();
             }
+          },
+          error: function() {
+            console.error("Error checking conversation status");
+            enableInput(); // Enable by default if check fails
           }
         });
       },
       error: function (error) {
+        hideLoadingOverlay();
         console.error("Error loading conversation history:", error);
         showErrorToast("Failed to load conversation history");
       },
@@ -513,57 +586,134 @@ function formatMessage(content) {
   return finalMessage;
 }
 
-function updateSidebarConversations() {
-  $.ajax({
-    url: "/conversations",
-    method: "GET",
-    success: function (response) {
-      const sidebarList = $("#sidebar-list");
-      sidebarList.empty(); // Clear existing conversationsadd
+// Function to append a conversation to the sidebar
+function appendConversation(conv, index, isFocused) {
+    const li = document.createElement("li");
+    li.classList.add("nav-item", "mb-2");
 
-      response.conversations.forEach((conv, index) => {
-        const li = $("<li>").addClass("nav-item mb-2");
-        const link = $("<a>")
-          .attr("href", `/conversation/${conv.conversation_id}`)
-          .addClass("nav-link text-white text-truncate d-flex flex-column")
-          .attr("data-conversation-id", conv.conversation_id);
+    const link = document.createElement("a");
+    link.href = `/conversation/${conv.conversation_id}`;
+    link.classList.add(
+        "nav-link",
+        "text-white",
+        "text-truncate",
+        "d-flex",
+        "flex-column"
+    );
+    link.setAttribute("data-conversation-id", conv.conversation_id);
 
-        // Add active class if this is the current conversation
-        if (conv.conversation_id === activeConversationId) {
-          link.addClass("active");
+    // Add focused class and completion status
+    if (conv.type === 'focused') {
+        link.classList.add("focused-conversation");
+        if (conv.is_completed) {
+            link.classList.add("completed-conversation");
         }
+    }
 
-        const title = $("<div>").addClass(
-          "d-flex justify-content-between align-items-center"
+    // Highlight current conversation if open
+    const pathParts = window.location.pathname.split("/");
+    if (pathParts[1] === "conversation" && pathParts[2] === conv.conversation_id) {
+        link.classList.add("active");
+    }
+
+    // Conversation title and date
+    const title = document.createElement("div");
+    title.classList.add(
+        "d-flex",
+        "justify-content-between",
+        "align-items-center"
+    );
+
+    const convName = document.createElement("span");
+    if (conv.type === 'focused') {
+        // Add status indicator for focused conversations
+        const statusIndicator = document.createElement("span");
+        statusIndicator.classList.add(
+            "conversation-status",
+            conv.is_completed ? "status-completed" : "status-incomplete"
         );
+        
+        convName.appendChild(statusIndicator);
+        convName.innerHTML += `<i class="fa-solid fa-code me-1"></i>${
+            conv.topic || `Challenge ${index + 1}`
+        }`;
+    } else {
+        convName.innerHTML = `<i class="fa-solid fa-comment me-1"></i>${
+            conv.title || `Conversation ${index + 1}`
+        }`;
+    }
 
-        const convName = $("<span>");
-        if (conv.type === "focused") {
-          convName.html(
-            `<i class="fa-solid fa-code me-1"></i>${
-              conv.topic || `Challenge ${index + 1}`
-            }`
-          );
-        } else {
-          convName.html(
-            `<i class="fa-solid fa-comment me-1"></i>${
-              conv.title || `Conversation ${index + 1}`
-            }`
-          );
+    const date = document.createElement("small");
+    date.classList.add("text-muted");
+    date.textContent = formatDate(conv.last_chat);
+
+    title.appendChild(convName);
+    title.appendChild(date);
+
+    link.appendChild(title);
+    li.appendChild(link);
+    return li;
+}
+
+// Update the updateConversationList function
+function updateConversationList() {
+    $.ajax({
+        url: "/conversations",
+        method: "GET",
+        success: function(response) {
+            const sidebarList = $("#sidebar-list");
+            sidebarList.empty();
+
+            // Group conversations
+            const regularConvs = response.conversations.filter(
+                conv => !conv.type || conv.type === 'regular'
+            );
+            const focusedConvs = response.conversations.filter(
+                conv => conv.type === 'focused'
+            );
+
+            // Add section header for regular conversations if any exist
+            if (regularConvs.length > 0) {
+                const regularHeader = document.createElement("div");
+                regularHeader.classList.add(
+                    "sidebar-section-header",
+                    "text-white-50",
+                    "small",
+                    "fw-bold",
+                    "px-2",
+                    "py-1"
+                );
+                regularHeader.textContent = "CONVERSATIONS";
+                sidebarList.append(regularHeader);
+
+                // Add regular conversations
+                regularConvs.forEach((conv, index) => {
+                    sidebarList.append(appendConversation(conv, index, false));
+                });
+            }
+
+            // Add section header for focused conversations if any exist
+            if (focusedConvs.length > 0) {
+                const focusedHeader = document.createElement("div");
+                focusedHeader.classList.add(
+                    "sidebar-section-header",
+                    "text-white-50",
+                    "small",
+                    "fw-bold",
+                    "px-2",
+                    "py-1"
+                );
+                focusedHeader.textContent = "FOCUSED LEARNING";
+                sidebarList.append(focusedHeader);
+
+                // Add focused conversations
+                focusedConvs.forEach((conv, index) => {
+                    sidebarList.append(appendConversation(conv, index, true));
+                });
+            }
+        },
+        error: function(error) {
+            console.error("Error updating sidebar:", error);
         }
-
-        const date = $("<small>")
-          .addClass("text-muted")
-          .text(formatDate(new Date(conv.last_chat)));
-
-        title.append(convName).append(date);
-        link.append(title);
-        li.append(link);
-        sidebarList.append(li);
-      });
-    },
-    error: function (error) {
-      console.error("Error updating sidebar:", error);
-    },
-  });
+    });
 }

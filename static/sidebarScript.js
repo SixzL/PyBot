@@ -2,25 +2,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const sidebarList = document.querySelector(".nav-pills");
   const newConversationBtn = document.querySelector(".btn-outline-light");
 
-  // Function to format date
-  function formatDate(dateString) {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } else if (diffDays === 1) {
-      return "Yesterday";
-    } else {
-      return date.toLocaleDateString();
-    }
-  }
-
   // Function to update conversation list
   function updateConversationList() {
     $.ajax({
@@ -115,7 +96,8 @@ document.addEventListener("DOMContentLoaded", function () {
       "text-white",
       "text-truncate",
       "d-flex",
-      "flex-column"
+      "align-items-center",
+      "justify-content-between"
     );
     link.setAttribute("data-conversation-id", conv.conversation_id);
 
@@ -138,38 +120,35 @@ document.addEventListener("DOMContentLoaded", function () {
       link.classList.add("active");
     }
 
-    // Conversation title and date
-    const title = document.createElement("div");
-    title.classList.add(
-      "d-flex",
-      "justify-content-between",
-      "align-items-center"
-    );
+    // Create main content span
+    const mainContent = document.createElement("span");
+    mainContent.classList.add("d-flex", "align-items-center", "flex-grow-1", "text-truncate");
 
-    const convName = document.createElement("span");
+    // Conversation title
     if (isFocused) {
       // Use the topic name for focused conversations
-      convName.innerHTML = `<i class="fa-solid fa-code me-1"></i>${
+      mainContent.innerHTML = `<i class="fa-solid fa-code me-1"></i><span class="text-truncate">${
         conv.topic || `Challenge ${index + 1}`
-      }`;
+      }</span>`;
+      
+      // Add completion indicator separately
       if (conv.is_completed) {
-        convName.innerHTML += ` <i class="fa-solid fa-check-circle text-success"></i>`;
+        const completionIndicator = document.createElement("span");
+        completionIndicator.classList.add("ms-2");
+        completionIndicator.innerHTML = '<i class="fa-solid fa-check-circle text-success"></i>';
+        link.appendChild(mainContent);
+        link.appendChild(completionIndicator);
+      } else {
+        link.appendChild(mainContent);
       }
     } else {
       // Use the title or fallback for regular conversations
-      convName.innerHTML = `<i class="fa-solid fa-comment me-1"></i>${
+      mainContent.innerHTML = `<i class="fa-solid fa-comment me-1"></i><span class="text-truncate">${
         conv.title || `Conversation ${index + 1}`
-      }`;
+      }</span>`;
+      link.appendChild(mainContent);
     }
 
-    const date = document.createElement("small");
-    date.classList.add("text-muted");
-    date.textContent = formatDate(conv.last_chat);
-
-    title.appendChild(convName);
-    title.appendChild(date);
-
-    link.appendChild(title);
     li.appendChild(link);
     sidebarList.appendChild(li);
   }

@@ -600,18 +600,15 @@ def list_conversations():
             'conversation_id': str(conv['_id']),
             'created_at': conv['created_at'].isoformat(),
             'last_chat': conv['last_chat'].isoformat() if 'last_chat' in conv else conv['created_at'].isoformat(),
-            'title': conv.get('title', None)  # Include the title
+            'title': conv.get('title', None),
+            'type': conv.get('type', 'regular'),  # Default to 'regular' if type not specified
+            'is_completed': conv.get('is_completed', False),  # Include completion status
+            'status': conv.get('status', 'active')  # Include status
         }
         
-        # Include additional fields if they exist
-        if 'type' in conv:
-            conversation_data['type'] = conv['type']
-        
-        if 'topic' in conv:
-            conversation_data['topic'] = conv['topic']
-            
-        if 'is_completed' in conv:
-            conversation_data['is_completed'] = conv['is_completed']
+        # Include topic for focused conversations
+        if conv.get('type') == 'focused':
+            conversation_data['topic'] = conv.get('topic')
             
         conversation_list.append(conversation_data)
 

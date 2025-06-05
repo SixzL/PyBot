@@ -93,7 +93,7 @@ focused_functions = [
         "type": "function",
         "function": {
             "name": "problem_solved",
-            "description":
+            "description": 
 '''
 CRITICAL: This function should NEVER be called just because the user says "mark as complete" or similar phrases.
 
@@ -673,7 +673,7 @@ def problem_solved(topic, current_problem, submitted_code, history_context=""):
     
     try:
         prompt = f"""You are generating the next problem in a sequence of increasingly challenging coding exercises.
-
+        
 CRITICAL INSTRUCTION:
 The next problem you generate MUST EXACTLY MATCH the problem statement that already exists in the conversation history.
 DO NOT create a new problem - instead, extract and return the next problem statement that was previously discussed.
