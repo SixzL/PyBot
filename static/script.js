@@ -64,6 +64,22 @@ $(document).ready(function () {
         if (response.history.length > 0) {
           response.history.forEach((msg) => appendMessage(msg));
         }
+        
+        // Check if conversation is completed
+        $.ajax({
+          url: "/conversations",
+          method: "GET",
+          success: function(convResponse) {
+            const conversation = convResponse.conversations.find(
+              conv => conv.conversation_id === conversationId
+            );
+            if (conversation && conversation.is_completed) {
+              disableInput();
+            } else {
+              enableInput();
+            }
+          }
+        });
       },
       error: function (error) {
         console.error("Error loading conversation history:", error);
@@ -440,6 +456,23 @@ $(document).ready(function () {
     $("#chat-messages").empty();
     $("#welcome-msg").show();
   }
+
+  // Add this function to handle completed conversations
+  function disableInput(message = "This conversation is completed. Start a new one to continue learning.") {
+    $("#user-input")
+        .prop("disabled", true)
+        .addClass("completed-conversation-input")
+        .attr("placeholder", message);
+    $("#send-btn").addClass("completed-conversation-button");
+  }
+
+  function enableInput() {
+    $("#user-input")
+        .prop("disabled", false)
+        .removeClass("completed-conversation-input")
+        .attr("placeholder", "Type your message here...");
+    $("#send-btn").removeClass("completed-conversation-button");
+  }
 });
 
 function formatMessage(content) {
@@ -486,7 +519,7 @@ function updateSidebarConversations() {
     method: "GET",
     success: function (response) {
       const sidebarList = $("#sidebar-list");
-      sidebarList.empty(); // Clear existing conversations
+      sidebarList.empty(); // Clear existing conversationsadd
 
       response.conversations.forEach((conv, index) => {
         const li = $("<li>").addClass("nav-item mb-2");

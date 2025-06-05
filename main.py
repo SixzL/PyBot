@@ -273,6 +273,13 @@ def continue_conversation(conversation_id):
     if not conversation:
         return jsonify({'error': 'Conversation not found'}), 404
 
+    # Check if conversation is completed
+    if conversation.get('is_completed', False):
+        return jsonify({
+            'error': 'This conversation is completed. You cannot send more messages.',
+            'is_completed': True
+        }), 403
+
     # Update last_chat timestamp
     conversations.update_one(
         {'_id': ObjectId(conversation_id)},
