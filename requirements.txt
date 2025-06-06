@@ -1,0 +1,7 @@
+Flask
+openai
+python-dotenv
+pymongo
+werkzeug
+bson
+tzdata
