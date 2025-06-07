@@ -11,20 +11,27 @@ from dotenv import load_dotenv
 import python_script.openai_function_calling as ofc
 
 load_dotenv()
-openai.api_key = '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'
-# openai.api_key = os.getenv('OPENAI_API_KEY')
+#openai.api_key = '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'
+openai.api_key = os.getenv('OPENAI_API_KEY')
 # if not openai.api_key:
 #     raise ValueError("OpenAI API key not found. Please check your secrets.")
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SESSION_SECRET',
-                           'your-secret-key')  # Change this in production
+app.secret_key = os.getenv('SESSION_SECRET')
 
 from pymongo import MongoClient
 
 # Connect to MongoDB
-#client = MongoClient(os.getenv('MONGODB_URI'))
-client = MongoClient('mongodb+srv://6zhaolun:fAIGauEjH7j4ABPw@pybot.xsywz.mongodb.net/?retryWrites=true&w=majority&appName=PyBot')
+client = MongoClient(os.getenv('MONGODB_URI'),
+    connectTimeoutMS=30000,
+    socketTimeoutMS=None,
+    connect=False,
+    maxPoolSize=1)
+# client = MongoClient('mongodb+srv://6zhaolun:fAIGauEjH7j4ABPw@pybot.xsywz.mongodb.net/?retryWrites=true&w=majority&appName=PyBot',
+#     connectTimeoutMS=30000,
+#     socketTimeoutMS=None,
+#     connect=False,
+#     maxPoolSize=1)
 db = client['PyBot']
 users = db['user']
 conversations = db['conversation']
