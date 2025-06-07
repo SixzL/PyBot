@@ -574,54 +574,63 @@ IMPORTANT GUIDELINES FOR SOCRATIC QUESTIONING:
    - Have them consider simpler versions of the problem
    - Guide them to discover patterns themselves
 
-Question Types (Choose ONLY ONE per response):
+Question Types including but not limited to (Choose ONLY ONE per response):
 1. Conceptual Understanding:
-   - "What patterns do you notice in...?"
-   - "How might this relate to...?"
-   - "What assumptions are we making about...?"
+   - "What do you already know about...?"
+   - "How would you explain...?"
+   - "What role does...play in...?"
 
-2. Problem Decomposition:
-   - "What smaller problems do you see within this larger one?"
-   - "Which part seems most challenging to you?"
-   - "What information do we need to track?"
+2. Problem Analysis:
+   - "What are the key aspects of...?"
+   - "How might different situations affect...?"
+   - "What patterns might be important here?"
 
-3. Solution Design:
-   - "What approaches have worked in similar situations?"
-   - "How would you handle a simpler version?"
-   - "What might change if we modified...?"
+3. Real-world Application:
+   - "Where have you seen this concept used?"
+   - "How might this be useful in practice?"
+   - "What real-world scenarios relate to this?"
 
 Your welcome message must:
 1. Be professional but approachable (avoid being overly playful or formal)
-2. Present the problem statement clearly, including:
-   - The main problem/task to solve
-   - The provided input/output examples exactly as they appear in the problem statement
-   - Any constraints or requirements mentioned
+2. Present the learning objective clearly based on its type:
+
+   For Conceptual Topics (e.g., "Explain variables", "Describe data types"):
+   - State the concept to be explained
+   - Mention key aspects to be covered
+   - Focus on understanding rather than implementation
+
+   For Implementation Problems (e.g., "Write a function", "Create a program"):
+   - Include the specific task requirements
+   - Show input/output examples if provided
+   - List any constraints or requirements
+
 3. If user provided code: Show it and acknowledge their attempt without correcting it
 4. End with ONE thought-provoking question that encourages exploration
 5. Keep the welcome message concise
-6. problem statement should be detailed and include all the examples and constraints
 
 Format:
 1. Brief welcome with topic in **bold**
-2. Problem statement with its examples:
-   "Here's what we need to solve:
-   **Problem:** [Problem description]
+2. Problem/Learning objective:
+   "Here's what we need to solve/understand:
+   **Objective:** [Clear statement of what needs to be learned/done]"
 
-   **Examples:**
+3. For implementation problems only:
+   "**Examples:**
    ```python
    Input: [example input]
    Output: [example output]
    ```"
-3. If user provided code: Show their starting point in a ```python``` code block
-4. ONE focused question to guide their thinking in **bold**
+
+4. If user provided code: Show their starting point in a ```python``` code block
+5. ONE focused question to guide their thinking in **bold**
 
 Question Guidelines:
 - Ask ONLY ONE question at a time and wait for response
 - Never give away the solution path directly
-- Ask questions that encourage pattern recognition
-- Focus on understanding over implementation
+- Ask questions that encourage critical thinking
+- Focus on understanding over memorization
 - Guide users to discover relationships and concepts themselves
-- Use analogies or simpler scenarios to build understanding
+- Use analogies or real-world examples to build understanding
 
 Remember:
 - Use **bold** for emphasis on key points and questions
@@ -631,7 +640,9 @@ Remember:
 - No code corrections or improvements
 - No example code if user hasn't provided any
 - Do not create new examples - use only those provided in the problem statement
-- Focus on guiding discovery through ONE thoughtful question at a time"""
+- Only include input/output examples if they're relevant to the problem type
+- Focus on guiding discovery through ONE thoughtful question at a time
+- Adapt the format based on whether it's a conceptual topic or implementation task"""
 
         response = openai.chat.completions.create(
             model="gpt-4o-mini",

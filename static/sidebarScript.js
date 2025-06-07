@@ -133,11 +133,7 @@ document.addEventListener("DOMContentLoaded", function () {
       
       // Add completion indicator separately
       if (conv.is_completed) {
-        const completionIndicator = document.createElement("span");
-        completionIndicator.classList.add("ms-2");
-        completionIndicator.innerHTML = '<i class="fa-solid fa-check-circle text-success"></i>';
         link.appendChild(mainContent);
-        link.appendChild(completionIndicator);
       } else {
         link.appendChild(mainContent);
       }

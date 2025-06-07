@@ -84,8 +84,16 @@ span.token.operator {
   height: 100vh;
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
-  width: 100%;
+  width: 320px;
+  min-width: 320px;
   overflow-y: auto;
+  overflow-x: auto;
+}
+
+/* Ensure nav items can scroll horizontally */
+#sidebar .nav-pills {
+  min-width: 100%;
+  white-space: nowrap;
 }
 
 #sidebar .nav-link {
@@ -95,6 +103,20 @@ span.token.operator {
   color: white;
   padding: 0.5rem 0.75rem;
   gap: 0.5rem;
+  white-space: nowrap;
+  overflow-x: visible;
+}
+
+/* Ensure dropdown menu is also scrollable if needed */
+#sidebar .dropdown-menu {
+  max-width: 280px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Remove the overflow-x-hidden class from the nav-pills list */
+#sidebar .nav-pills.mb-auto {
+  overflow-x: visible;
 }
 
 #sidebar .nav-link:hover {
@@ -425,13 +447,12 @@ span.token.operator {
   .sidebar-container {
     position: fixed;
     top: 0;
-    left: -100%;
+    left: -320px;
     height: 100vh;
-    width: 75%;
-    max-width: 300px;
+    width: 320px;
     z-index: 1040;
     transition: left 0.3s ease;
-    overflow: hidden;
+    overflow: visible !important;
   }
 
   .sidebar-container.show {
@@ -441,6 +462,13 @@ span.token.operator {
   #sidebar {
     height: 100vh;
     overflow-y: auto;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  #sidebar .dropdown-menu {
+    position: absolute;
+    z-index: 1050;
   }
 
   /* Overlay when sidebar is open */
@@ -474,5 +502,12 @@ span.token.operator {
     padding-right: 0;
     padding-left: 0;
     overflow: hidden;
+  }
+
+  /* Ensure dropdown menu is also scrollable if needed */
+  #sidebar .dropdown-menu {
+    max-width: 320px;
+    overflow-x: auto;
+    white-space: nowrap;
   }
 }

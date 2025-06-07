@@ -421,7 +421,8 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
                     "topic": topic,
                     "message_id": message_id,
                     "submitted_code": submitted_code,
-                    "problem_statement": problem_statement
+                    "problem_statement": problem_statement,
+                    "is_completed": conversation.get('is_completed', False)
                 }
 
             elif name == "problem_solved":
@@ -520,7 +521,8 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
                     "topic": result.get('topic'),
                     "message_id": message_id,
                     "submitted_code": None,
-                    "problem_statement": result.get('next_challenge')
+                    "problem_statement": result.get('next_challenge'),
+                    "is_completed": True
                 }
 
             elif name == "redefine_problem":
@@ -555,6 +557,7 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
 
                 return {
                     "response": gpt_response_content,
+                    "is_completed": conversation.get('is_completed', False)
                 }
 
         # Standard text response
@@ -580,7 +583,8 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
         return {
             "response": gpt_response_content,
             "propose_new_chat": False,
-            "topic": None
+            "topic": None,
+            "is_completed": conversation.get('is_completed', False)
         }
 
     except Exception as e:

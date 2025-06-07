@@ -1,4 +1,4 @@
-<div class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark w-100 vh-100 ">
+<div class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark h-100">
     <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
         <span class="fs-4">PyBot</span>
     </a>
@@ -9,8 +9,8 @@
             <i class="fa-solid fa-plus"></i>
         </button>
     </div>
-    <div class="overflow-auto h-100 mt-3">
-        <ul class="nav nav-pills flex-column mb-auto overflow-x-hidden">
+    <div class="overflow-auto flex-grow-1 mt-3">
+        <ul class="nav nav-pills flex-column mb-auto">
             <!-- Conversations will be loaded dynamically via JavaScript -->
         </ul>
     </div>
@@ -18,14 +18,14 @@
     <hr>
     <div class="dropdown">
         <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle"
-            data-bs-toggle="dropdown" aria-expanded="false">
+            data-bs-toggle="dropdown" aria-expanded="false" onclick="event.stopPropagation();">
             <div class="bg-secondary rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
                 <i class="fa-solid fa-user text-white"></i>
             </div>
             <strong>USER</strong>
         </a>
         <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
-            <li><a class="dropdown-item" id="signout-btn"><i class="fa-solid fa-right-from-bracket me-2"></i>Sign out</a></li>
+            <li><a class="dropdown-item" id="signout-btn" onclick="event.stopPropagation();"><i class="fa-solid fa-right-from-bracket me-2"></i>Sign out</a></li>
         </ul>
     </div>
 </div>

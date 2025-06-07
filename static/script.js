@@ -443,9 +443,16 @@ $(document).ready(function () {
             type: "invitation",
             content: response.topic,
             submitted_code: response.submitted_code || "",
-            problem_statement: response.problem_statement, // Pass problem statement directly without fallback
+            problem_statement: response.problem_statement,
             _id: response.message_id,
           });
+        }
+
+        // Check if the conversation is now completed
+        if (response.is_completed) {
+          disableInput();
+        } else {
+          $("#user-input").prop("disabled", false).focus(); // Only re-enable if not completed
         }
 
         // Update the sidebar
@@ -463,9 +470,10 @@ $(document).ready(function () {
           content: "⚠️ Error: Could not get a response.",
         });
         showErrorToast("Failed to get a response from the server");
+        $("#user-input").prop("disabled", false).focus(); // Re-enable input on error
       },
       complete: function () {
-        $("#user-input").prop("disabled", false).focus(); // Re-enable input after response
+        // All input enabling/disabling is now handled in success/error handlers
       },
     });
   });
