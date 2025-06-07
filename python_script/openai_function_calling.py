@@ -1,6 +1,6 @@
 import json
 import openai
-import jsonify
+from flask import jsonify
 from bson import ObjectId
 from pymongo import MongoClient
 import os
@@ -20,7 +20,7 @@ normal_functions = [
         "type": "function",
         "function": {
             "name": "propose_new_conversation",
-            "description": 
+            "description":
 '''
 Use this function to create a focused learning conversation in ANY of these scenarios:
 
@@ -93,7 +93,7 @@ focused_functions = [
         "type": "function",
         "function": {
             "name": "problem_solved",
-            "description": 
+            "description":
 '''
 CRITICAL: This function should NEVER be called just because the user says "mark as complete" or similar phrases.
 
@@ -415,7 +415,7 @@ Current Code Context:
 {submitted_code}
 ```
 
-Remember: 
+Remember:
 - Always check for correct solutions first
 - Call problem_solved immediately for correct solutions
 - One question at a time if solution needs improvement
@@ -431,10 +431,10 @@ def propose_new_conversation(topic, problem_statement, submitted_code=None):
     print(f"\n\n\nTopic: {topic}")
     print(f"Problem Statement: {problem_statement}")
     print(f"Submitted Code:\n{submitted_code}")
-    
+
     # Get context-aware system instruction
     system_instruction = get_system_instruction(topic, problem_statement, submitted_code)
-    
+
     try:
         prompt = f"""Based on the provided system instruction and problem statement:
 
@@ -452,7 +452,7 @@ Problem: {problem_statement}
    - Provide initial hints about approaching the problem
    - Suggest what they should think about before starting
 
-Remember: 
+Remember:
 - No direct solutions - use questions and hints to guide discovery
 - Focus on understanding and learning rather than just completing the task
 - Help them develop problem-solving skills"""
@@ -502,7 +502,7 @@ def generate_chat_title(user_message):
             temperature=0.7,
             top_p=1.0
         )
-        
+
         title = response.choices[0].message.content.strip()
         # Ensure title is not too long
         if len(title) > 50:
@@ -516,7 +516,7 @@ def call_function(name, args_str):
     args = json.loads(args_str)
     print(f"Function called: {name}")
     print(f"Arguments: {args}")
-    
+
     if name == "propose_new_conversation":
         return propose_new_conversation(**args)
     elif name == "problem_solved":
@@ -547,7 +547,7 @@ def generate_welcome_message(topic, submitted_code=None, problem_statement=None,
                 "sender": {"$in": ["user", "assistant"]},  # Only user and assistant messages
                 "message.type": "text"  # Only text messages
             }).sort("timestamp", -1).limit(3)  # Get last 3 messages
-            
+
             if previous_messages:
                 history_context = "\nContext from previous conversation:\n"
                 for msg in previous_messages:
@@ -606,7 +606,7 @@ Format:
 2. Problem statement with its examples:
    "Here's what we need to solve:
    **Problem:** [Problem description]
-   
+
    **Examples:**
    ```python
    Input: [example input]
@@ -670,10 +670,10 @@ def problem_solved(topic, current_problem, submitted_code, history_context=""):
     print(f"Current Problem: {current_problem}")
     print(f"Initial Submitted Code:\n{submitted_code}")
     print(f"History Context:\n{history_context}")
-    
+
     try:
         prompt = f"""You are generating the next problem in a sequence of increasingly challenging coding exercises.
-        
+
 CRITICAL INSTRUCTION:
 The next problem you generate MUST EXACTLY MATCH the problem statement that already exists in the conversation history.
 DO NOT create a new problem - instead, extract and return the next problem statement that was previously discussed.
@@ -745,7 +745,7 @@ REMEMBER: DO NOT CREATE A NEW PROBLEM. The next problem statement already exists
 
         # Add the next_challenge field to the result
         result["next_challenge"] = next_problem
-        
+
         return result
 
     except Exception as e:

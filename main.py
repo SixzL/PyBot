@@ -11,9 +11,10 @@ from dotenv import load_dotenv
 import python_script.openai_function_calling as ofc
 
 load_dotenv()
-openai.api_key = os.getenv('OPENAI_API_KEY')
-if not openai.api_key:
-    raise ValueError("OpenAI API key not found. Please check your secrets.")
+openai.api_key = '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'
+# openai.api_key = os.getenv('OPENAI_API_KEY')
+# if not openai.api_key:
+#     raise ValueError("OpenAI API key not found. Please check your secrets.")
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SESSION_SECRET',
@@ -22,7 +23,8 @@ app.secret_key = os.getenv('SESSION_SECRET',
 from pymongo import MongoClient
 
 # Connect to MongoDB
-client = MongoClient(os.getenv('MONGODB_URI'))
+#client = MongoClient(os.getenv('MONGODB_URI'))
+client = MongoClient('mongodb+srv://6zhaolun:fAIGauEjH7j4ABPw@pybot.xsywz.mongodb.net/?retryWrites=true&w=majority&appName=PyBot')
 db = client['PyBot']
 users = db['user']
 conversations = db['conversation']
@@ -97,7 +99,7 @@ def update_last_conversation(user_id):
         {'$set': {
             'last_chat': datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))
         }},
-        upsert=True  
+        upsert=True
     )
 
 @app.route('/')
@@ -145,19 +147,19 @@ def chat_history():
     for msg in message_cursor:
         if msg["sender"] == "system":
             continue
-            
+
         message_data = {
             "role": msg["sender"],
             "content": msg["message"]["content"],
             "type": msg["message"].get("type", "text")  # Default to "text" if type not specified
         }
-        
+
         # Include message ID and accepted status for invitation messages
         if msg["message"].get("type") == "invitation":
             message_data["_id"] = str(msg["_id"])
             message_data["accepted"] = msg["message"].get("accepted", False)
             message_data["submitted_code"] = msg["message"].get("submitted_code")  # Include submitted_code
-            
+
         conversation_history.append(message_data)
 
     return jsonify({"history": conversation_history})
@@ -170,7 +172,7 @@ def new_conversation():
 
     user_id = ObjectId(session['user_id'])
     user_message = request.json.get('message')
-    
+
     if not user_message:
         return jsonify({"error": "No user input provided"}), 400
 
@@ -249,7 +251,7 @@ CRITICAL GUIDELINES:
         "message": {
             "type": "text",
             "content" : system_instruction["content"]
-        } 
+        }
     })
 
     result = continue_conversation_logic(user_id, conversation_id, user_message)
@@ -297,14 +299,14 @@ def view_conversation_page(conversation_id):
     if 'user_id' not in session:
         return redirect(url_for('login_page'))
     return render_template('index.html', conversation_id=conversation_id)
-    
+
 def continue_conversation_logic(user_id, conversation_id, user_message):
     # Check if this is a focused conversation
 
     print("in continue_conversation_logic")
     conversation = conversations.find_one({'_id': ObjectId(conversation_id)})
     is_focused = conversation and conversation.get('type') == 'focused'
-    
+
     chat_history = load_conversation_history(conversation_id)
     chat_history.append({"role": "user", "content": user_message})
     print(chat_history)
@@ -342,7 +344,7 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
         if response.choices[0].finish_reason == "tool_calls":
             name = assistant_message.tool_calls[0].function.name
             args = assistant_message.tool_calls[0].function.arguments
-            
+
             tool_calls = response.choices[0].message.tool_calls
             call_id = tool_calls[0].id
             print(call_id)
@@ -407,7 +409,7 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
                         "problem_statement": problem_statement
                     }
                 }
-                
+
                 # Insert the message and get its ID
                 message_result = messages.insert_one(invitation_message)
                 message_id = str(message_result.inserted_id)
@@ -425,7 +427,7 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
                 # For focused conversations, override the arguments with our stored values
                 focused_topic = conversation.get('topic')
                 focused_problem = conversation.get('problem_statement')
-                focused_code = conversation.get('initial_code') 
+                focused_code = conversation.get('initial_code')
 
                 # First mark the current conversation as completed
                 conversations.update_one(
@@ -506,7 +508,7 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
                         "problem_statement": result.get('next_challenge')
                     }
                 }
-                
+
                 # Insert the message and get its ID
                 message_result = messages.insert_one(next_challenge_message)
                 message_id = str(message_result.inserted_id)
@@ -605,11 +607,11 @@ def list_conversations():
             'is_completed': conv.get('is_completed', False),  # Include completion status
             'status': conv.get('status', 'active')  # Include status
         }
-        
+
         # Include topic for focused conversations
         if conv.get('type') == 'focused':
             conversation_data['topic'] = conv.get('topic')
-            
+
         conversation_list.append(conversation_data)
 
     return jsonify({'conversations': conversation_list})
@@ -660,7 +662,7 @@ def create_focused_conversation():
         "message": {
             "type": "text",
             "content" : system_instruction["content"]
-        } 
+        }
     })
 
     # Add initial message welcoming the user to the focused conversation
@@ -679,7 +681,7 @@ def create_focused_conversation():
             )
         }
     }
-    
+
     messages.insert_one(welcome_message)
 
     return jsonify({'success': True, 'conversation_id': str(conversation_id)})
