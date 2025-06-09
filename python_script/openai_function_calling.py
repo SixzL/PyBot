@@ -686,9 +686,8 @@ def problem_solved(topic, current_problem, submitted_code, history_context=""):
         prompt = f"""You are generating the next problem in a sequence of increasingly challenging coding exercises.
 
 CRITICAL INSTRUCTION:
-The next problem you generate MUST EXACTLY MATCH the problem statement that already exists in the conversation history.
-DO NOT create a new problem - instead, extract and return the next problem statement that was previously discussed.
-This ensures consistency in the learning progression that was already established.
+First, try to find a next problem statement that already exists in the conversation history.
+If NO suitable next problem exists in the history, you MUST generate a new appropriate problem.
 
 CURRENT STATE:
 Topic: {topic}
@@ -705,35 +704,51 @@ User's Learning Journey:
 {history_context}
 
 TASK:
-Find and return the next problem statement that exists in the conversation history. The problem should:
+First, search for an existing next problem in the conversation history.
+If none exists or if the topic is too broad (e.g., "Learn Python basics"), then:
 
-1. PROGRESSION:
-   - Be ONE level harder than the current problem
-   - Build directly upon concepts mastered in the current solution
+1. ANALYZE CURRENT TOPIC:
+   - If topic is broad (e.g., "Python basics", "Data types", etc.):
+     * Extract ONE specific concept to focus on (e.g., "Variables", "Integers", "Strings")
+     * Create a focused problem for that concept
+   - If topic is specific:
+     * Build directly on the current problem
+     * Add ONE new challenging aspect
+
+2. PROGRESSION:
+   - Make problem ONE level harder than current
+   - Build upon concepts just mastered
    - Add exactly ONE new challenging aspect
-   - Stay within the same topic area ({topic})
+   - Stay within same topic area ({topic})
 
 2. TARGETING:
    - Address any misconceptions visible in their initial code attempt
    - Reinforce concepts they struggled with (visible in conversation history)
    - Challenge assumptions they made in their solution
 
-3. REQUIREMENTS:
+4. REQUIREMENTS:
    - Must be specific and well-defined
    - Must include clear input/output examples
    - Must state all constraints explicitly
-   - Must be solvable using knowledge from previous problem plus ONE new concept
+   - Must be solvable using previous knowledge plus ONE new concept
 
-4. FORMAT:
-   Extract and return ONLY the problem statement from the conversation history with:
-   - Clear description of what needs to be done
-   - Specific examples showing input and output
-   - Any constraints or requirements
-   - NO introductory text or congratulatory messages
-   - NO hints or suggestions
-   - NO reference to previous problems
+5. FORMAT:
+   Return problem statement with:
+   - Clear description of task
+   - Specific input/output examples
+   - All constraints/requirements
+   - NO introductory text
+   - NO congratulatory messages
+   - NO hints/suggestions
+   - NO references to previous problems
 
-REMEMBER: DO NOT CREATE A NEW PROBLEM. The next problem statement already exists in the conversation history - your task is to find and return it exactly as it appears."""
+Example Format:
+Write a function that [specific task description].
+
+Input: [clear example input]
+Output: [expected output]
+
+REMEMBER: DO NOT CREATE A NEW PROBLEM if the next problem statement already exists in the conversation history - your task is to find and return it exactly as it appears. ELSE, CREATE A NEW PROBLEM based on the current topic and problem statement."""
 
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
