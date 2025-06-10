@@ -259,22 +259,36 @@ $(document).ready(function () {
     if (message.type === "invitation") {
       // Create invitation message with button
       messageContent = `
-            <div class="msgBox py-2 px-3 rounded bg-light text-dark">
-                ${message.content}
-                <div class="mt-2">
-                    <button class="btn btn-primary btn-sm learn-more-btn" 
-                            ${message.accepted ? "disabled" : ""} 
-                            data-topic="${encodeURIComponent(message.content)}"
-                            data-submitted-code="${encodeURIComponent(
-                              message.submitted_code || ""
-                            )}"
-                            data-problem="${encodeURIComponent(
-                              message.problem_statement || ""
-                            )}"
-                            data-message-id="${message._id || ""}">
-                        <i class="fa-solid fa-book-open me-1"></i> 
-                        ${message.accepted ? "Already started" : "Learn more"}
-                    </button>
+            <div class="msgBox py-3 px-4 rounded bg-light text-dark invitation-box">
+                <div class="invitation-content">
+                    <div class="invitation-header mb-2">
+                        <i class="fa-solid fa-star text-warning me-2"></i>
+                        <strong>Invitation to Focused Learning</strong>
+                    </div>
+                    <div class="invitation-description mb-3">
+                        <p class="invitation-text text-muted mb-2">
+                            Join a focused learning session to master this specific topic. 
+                            Focused learning helps you understand and solve problems more efficiently 
+                            by concentrating on one topic at a time.
+                        </p>
+                        <strong class="topic-label">Topic:</strong>
+                        <div class="topic-content">${message.content}</div>
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-primary btn-sm learn-more-btn" 
+                                ${message.accepted ? "disabled" : ""} 
+                                data-topic="${encodeURIComponent(message.content)}"
+                                data-submitted-code="${encodeURIComponent(
+                                  message.submitted_code || ""
+                                )}"
+                                data-problem="${encodeURIComponent(
+                                  message.problem_statement || ""
+                                )}"
+                                data-message-id="${message._id || ""}">
+                            <i class="fa-solid fa-graduation-cap me-1"></i> 
+                            ${message.accepted ? "Already started" : "Start focused learning"}
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -284,7 +298,7 @@ $(document).ready(function () {
               message.role === "user"
                 ? "bg-primary text-white"
                 : "bg-light text-dark"
-            }" style="white-space: pre-wrap;">${formatMessage(message.content)}</div>`;
+            } message-content">${formatMessage(message.content)}</div>`;
     }
 
     messageDiv.html(messageContent);
@@ -342,12 +356,12 @@ $(document).ready(function () {
                 })
                 .catch(() => {
                   // If focused conversation creation fails, re-enable the button
-                  button.prop("disabled", false).text("Learn more");
+                  button.prop("disabled", false).text("Start focused learning");
                 });
             },
             error: function (xhr) {
               // Re-enable the button on error
-              button.prop("disabled", false).text("Learn more");
+              button.prop("disabled", false).text("Start focused learning");
               showErrorToast(
                 xhr.responseJSON?.error || "Failed to update invitation status"
               );
@@ -578,9 +592,15 @@ function formatMessage(content) {
     }
   );
 
-
   // Format Markdown-style text (outside of code blocks)
   const finalMessage = formattedMessage
+    // Handle LaTeX symbols first
+    .replace(/\\times/g, "×") // Convert \times to × symbol
+    .replace(/\\div/g, "÷") // Convert \div to ÷ symbol
+    .replace(/\\pm/g, "±") // Convert \pm to ± symbol
+    .replace(/\\le/g, "≤") // Convert \le to ≤ symbol
+    .replace(/\\ge/g, "≥") // Convert \ge to ≥ symbol
+    .replace(/\\ne/g, "≠") // Convert \ne to ≠ symbol
     // Convert LaTeX-style variables to code format
     .replace(/\\\(\s*(.*?)\s*\\\)/g, "`$1`") // Convert \( n \) to `n` (trim spaces)
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold
@@ -589,7 +609,6 @@ function formatMessage(content) {
     .replace(/\n\n/g, "<br><br>") // Paragraph breaks
     .replace(/\n/g, "<br>") // Line breaks
     .trim();
-
 
   return finalMessage;
 }
@@ -662,7 +681,6 @@ function appendConversation(conv, index, isFocused) {
     li.appendChild(link);
     return li;
 }
-
 // Update the updateConversationList function
 function updateConversationList() {
     $.ajax({
@@ -725,3 +743,4 @@ function updateConversationList() {
         }
     });
 }
+

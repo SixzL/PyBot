@@ -71,7 +71,7 @@ CRITICAL: Problem Statement Structure
 Your problem_statement MUST identify the type (CONCEPTUAL or PRACTICAL) and follow the appropriate format:
 
 TYPE A: CONCEPTUAL/THEORETICAL TOPICS
-For topics like "Understanding Functions", "Time Complexity", "Python Libraries", etc.
+For topics like but not limited to, "Understanding Functions", "Time Complexity", "Python Libraries", etc.
 
 1. CONCEPT INTRODUCTION
    ```
@@ -106,7 +106,7 @@ For topics like "Understanding Functions", "Time Complexity", "Python Libraries"
    2. [Common mistake 2] → [Simple correction]
    ```
 
-Example of a Well-Structured Conceptual Topic:
+Example of a Well-Structured Conceptual Topic (but not limited to):
 ```
 Topic: Understanding Python Functions
 What is it: A function is a reusable block of code that performs a specific task
@@ -117,11 +117,11 @@ Main Ideas:
 2. You can use the same function many times with different inputs
 3. Functions help break big problems into smaller, manageable pieces
 
-Real-World Example:
+Real-World Example (but not limited to):
 - Situation: Making coffee with a coffee machine
 - How it relates: Like a function, it takes inputs (water, coffee beans) and produces an output (coffee)
 
-Code Example:
+Code Example (but not limited to):
 - Simple case: A function that greets someone by name
 - When to use it: When you need to greet different people in your program
 
@@ -197,7 +197,7 @@ For hands-on coding tasks, use this structure:
    - [Implementation hints without revealing solution]
    ```
 
-Example of a Well-Structured Problem Statement:
+Example of a Well-Structured Problem Statement but not limited to:
 ```
 Write a function that finds the maximum value in a list of numbers.
 
@@ -361,35 +361,6 @@ The function will:
     }
 ]
 
-# Template for proposing a new conversation
-propose_template = """\
-I see you're interested in {topic}. Let's work through this together.
-
-{code_section}
-
-I'll guide you through:
-1. Understanding the problem and its requirements
-2. Breaking down the solution into manageable steps
-3. Identifying key concepts and potential challenges
-
-Let me know if you'd like to begin!
-"""
-
-# Template for proposing a next challenge
-next_challenge_template = """\
-Congratulations on solving this problem! 
-
-Based on what you've learned, here's a slightly more challenging problem you might want to try next:
-
-# {next_challenge}
-
-Would you like to:
-1. Start a new focused session on this challenge
-2. Continue exploring other Python concepts
-
-Let me know what you'd prefer!
-"""
-
 # Example function implementations
 def get_system_instruction(topic, problem_statement, submitted_code=None):
     base_instruction = f'''You are PyBot, an educational coding mentor focused specifically on teaching {topic}.
@@ -476,7 +447,7 @@ Core Principles:
     my_list = []  # Empty list
     my_list = [1, 2, 3]  # Simple numbers
     ```
-  * Use universally applicable examples:
+  * Use universally applicable examples (but not limited to):
     - Counting: "Count from 1 to 5"
     - Simple math: "Add two numbers"
     - Basic items: "Process colors in a list"
@@ -875,13 +846,13 @@ Problem Statement: {problem_statement}
 User's Code: {f'''```python\n{submitted_code}\n```''' if submitted_code else 'No code provided yet'}
 
 CRITICAL INSTRUCTION FOR CONCEPTUAL TOPICS:
-When the topic is conceptual (e.g., "Python Libraries", "Data Types", "OOP Concepts"):
+When the topic is conceptual (e.g. but not limited to, "Python Libraries", "Data Types", "OOP Concepts"):
 1. ALWAYS start by breaking down the broad topic into ONE specific, concrete aspect
 2. Choose the most fundamental concept that must be understood first
 3. Frame your first question around this specific concept
 4. Use real-world analogies in your question to make it relatable
 
-Examples of Conceptual Topic Handling:
+Examples of Conceptual Topic Handling (but not limited to):
 Topic: "Python Libraries"
 ❌ BAD: "What do you know about Python libraries?"
 ✅ GOOD: "When you use your smartphone, you don't create every app from scratch - you download existing apps. How do you think this relates to Python libraries?"
@@ -926,13 +897,13 @@ Your welcome message must:
 1. Be professional but approachable (avoid being overly playful or formal)
 2. Present the learning objective clearly based on its type:
 
-   For Conceptual Topics (e.g., "Explain variables", "Describe data types"):
+   For Conceptual Topics (e.g. but not limited to, "Explain variables", "Describe data types"):
    - First identify ONE specific, fundamental aspect to focus on
    - Use a relevant real-world analogy to introduce this aspect
    - Frame your first question around this concrete example
    - Focus on understanding rather than implementation
 
-   For Implementation Problems (e.g., "Write a function", "Create a program"):
+   For Implementation Problems (e.g. but not limited to, "Write a function", "Create a program"):
    - Include the specific task requirements
    - Show input/output examples if provided
    - List any constraints or requirements
@@ -978,7 +949,7 @@ Remember:
 - No code corrections or improvements
 - No example code if user hasn't provided any
 - Do not create new examples - use only those provided in the problem statement
-- Only include input/output examples if they're relevant to the problem type
+- MUST include input/output examples if they're relevant to the problem type
 - Focus on guiding discovery through ONE thoughtful question at a time
 - Adapt the format based on whether it's a conceptual topic or implementation task
 - For conceptual topics, always start with a specific, concrete aspect and real-world analogy"""
@@ -1047,11 +1018,11 @@ User's Learning Journey:
 
 TASK:
 First, search for an existing next problem in the conversation history.
-If none exists or if the topic is too broad (e.g., "Learn Python basics"), then:
+If none exists or if the topic is too broad (e.g. but not limited to, "Learn Python basics"), then:
 
 1. ANALYZE CURRENT TOPIC:
-   - If topic is broad (e.g., "Python basics", "Data types", etc.):
-     * Extract ONE specific concept to focus on (e.g., "Variables", "Integers", "Strings")
+   - If topic is broad (e.g. but not limited to, "Python basics", "Data types", etc.):
+     * Extract ONE specific concept to focus on (e.g. but not limited to, "Variables", "Integers", "Strings")
      * Create a focused problem for that concept
    - If topic is specific:
      * Build directly on the current problem

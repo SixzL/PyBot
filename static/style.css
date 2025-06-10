@@ -511,3 +511,146 @@ span.token.operator {
     white-space: nowrap;
   }
 }
+
+/* Sidebar Category Sections */
+.sidebar-section {
+    height: calc(35vh - 100px);
+    display: flex;
+    flex-direction: column;
+}
+
+.category-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(108, 117, 125, 0.25);
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.category-title {
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.category-title i {
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+/* Conversation Containers */
+.conversation-container,
+.focused-container {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 0 4px;
+}
+
+/* Custom scrollbar for conversation containers */
+.conversation-container::-webkit-scrollbar,
+.focused-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.conversation-container::-webkit-scrollbar-track,
+.focused-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.conversation-container::-webkit-scrollbar-thumb,
+.focused-container::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+}
+
+/* New conversation button */
+.btn-outline-light {
+    border-width: 1.5px;
+    padding: 2px 6px;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.btn-outline-light:hover {
+    opacity: 1;
+}
+
+/* User avatar in sidebar */
+.dropdown .bg-secondary {
+    width: 32px;
+    height: 32px;
+}
+
+/* Invitation Box Styles */
+.invitation-box {
+    border-left: 4px solid #ffc107;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    max-width: 500px;
+    width: 90%;
+    margin-right: auto;
+}
+
+.invitation-content {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+}
+
+.invitation-header {
+    font-size: 1.1rem;
+    color: #2c3e50;
+}
+
+.invitation-description {
+    border-left: 2px solid #e9ecef;
+    padding-left: 12px;
+}
+
+.invitation-text {
+    font-size: 0.9rem;
+}
+
+.topic-label {
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.topic-content {
+    line-height: 1.5;
+}
+
+/* Learn More Button in Invitation */
+.learn-more-btn {
+    padding: 8px 16px;
+    font-weight: 500;
+    white-space: normal;
+    text-align: center;
+    width: auto;
+    min-width: 200px;
+}
+
+.learn-more-btn:not(:disabled) {
+    background-color: #0056b3;
+    border-color: #004085;
+}
+
+.learn-more-btn:not(:disabled):hover {
+    background-color: #003d7a;
+    border-color: #002752;
+}
+
+/* Responsive Invitation Box */
+@media (max-width: 768px) {
+    .invitation-box {
+        max-width: 95%;
+        margin: 0 8px;
+    }
+}
