@@ -684,7 +684,7 @@ Generate a welcoming message that sets the right tone for this focused learning 
             ],
             max_tokens=500,
             temperature=0.7,
-            top_p=0.9
+            top_p=0.9,
             presence_penalty=0.6,
             frequency_penalty=0.3
         )
