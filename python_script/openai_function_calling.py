@@ -562,6 +562,26 @@ Topic: {topic}
 Problem Statement: {problem_statement}
 User's Code: {f'''```python\n{submitted_code}\n```''' if submitted_code else 'No code provided yet'}
 
+CRITICAL INSTRUCTION FOR CONCEPTUAL TOPICS:
+When the topic is conceptual (e.g., "Python Libraries", "Data Types", "OOP Concepts"):
+1. ALWAYS start by breaking down the broad topic into ONE specific, concrete aspect
+2. Choose the most fundamental concept that must be understood first
+3. Frame your first question around this specific concept
+4. Use real-world analogies in your question to make it relatable
+
+Examples of Conceptual Topic Handling:
+Topic: "Python Libraries"
+❌ BAD: "What do you know about Python libraries?"
+✅ GOOD: "When you use your smartphone, you don't create every app from scratch - you download existing apps. How do you think this relates to Python libraries?"
+
+Topic: "Object-Oriented Programming"
+❌ BAD: "Let's discuss OOP concepts"
+✅ GOOD: "Think about a car. What specific properties would you need to describe a car? This will help us understand how objects work in Python."
+
+Topic: "Data Types"
+❌ BAD: "What are Python data types?"
+✅ GOOD: "If you needed to store someone's age in a program, what kind of value would that be - text, a whole number, or a decimal number?"
+
 IMPORTANT GUIDELINES FOR SOCRATIC QUESTIONING:
 1. ALWAYS ask only ONE question at a time - wait for user's response before proceeding
 2. NEVER provide direct solutions or obvious hints
@@ -595,8 +615,9 @@ Your welcome message must:
 2. Present the learning objective clearly based on its type:
 
    For Conceptual Topics (e.g., "Explain variables", "Describe data types"):
-   - State the concept to be explained
-   - Mention key aspects to be covered
+   - First identify ONE specific, fundamental aspect to focus on
+   - Use a relevant real-world analogy to introduce this aspect
+   - Frame your first question around this concrete example
    - Focus on understanding rather than implementation
 
    For Implementation Problems (e.g., "Write a function", "Create a program"):
@@ -613,6 +634,10 @@ Format:
 2. Problem/Learning objective:
    "Here's what we need to solve/understand:
    **Objective:** [Clear statement of what needs to be learned/done]"
+
+   For conceptual topics, add:
+   **Starting Point:** [ONE specific aspect with real-world analogy]
+   **Focus Area:** [The fundamental concept to understand first]
 
 3. For implementation problems only:
    "**Examples:**
@@ -631,6 +656,7 @@ Question Guidelines:
 - Focus on understanding over memorization
 - Guide users to discover relationships and concepts themselves
 - Use analogies or real-world examples to build understanding
+- For conceptual topics, ALWAYS start with a concrete, real-world example
 
 Remember:
 - Use **bold** for emphasis on key points and questions
@@ -642,7 +668,8 @@ Remember:
 - Do not create new examples - use only those provided in the problem statement
 - Only include input/output examples if they're relevant to the problem type
 - Focus on guiding discovery through ONE thoughtful question at a time
-- Adapt the format based on whether it's a conceptual topic or implementation task"""
+- Adapt the format based on whether it's a conceptual topic or implementation task
+- For conceptual topics, always start with a specific, concrete aspect and real-world analogy"""
 
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
@@ -657,7 +684,7 @@ Generate a welcoming message that sets the right tone for this focused learning 
             ],
             max_tokens=500,
             temperature=0.7,
-            top_p=0.9,
+            top_p=0.9
             presence_penalty=0.6,
             frequency_penalty=0.3
         )
