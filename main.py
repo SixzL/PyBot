@@ -9,6 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from bson import ObjectId
 from dotenv import load_dotenv
 import python_script.openai_function_calling as ofc
+import time  # Add time module import
 
 load_dotenv()
 openai.api_key = os.getenv('OPENAI_API_KEY')
@@ -290,7 +291,7 @@ def continue_conversation(conversation_id):
     )
 
     # Continue processing as a normal chat
-    print("before continue_conversation_logic")
+
     result = continue_conversation_logic(user_id, conversation_id, user_message)
     result["conversation_id"] = str(conversation_id)
     return jsonify(result)
@@ -302,15 +303,14 @@ def view_conversation_page(conversation_id):
     return render_template('index.html', conversation_id=conversation_id)
 
 def continue_conversation_logic(user_id, conversation_id, user_message):
-    # Check if this is a focused conversation
 
-    print("in continue_conversation_logic")
+
     conversation = conversations.find_one({'_id': ObjectId(conversation_id)})
     is_focused = conversation and conversation.get('type') == 'focused'
 
     chat_history = load_conversation_history(conversation_id)
     chat_history.append({"role": "user", "content": user_message})
-    print(chat_history)
+
     try:
         # Select functions based on conversation type
         if is_focused:
@@ -318,8 +318,9 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
         else:
             tools = ofc.normal_functions
 
-        print(f"tools: {tools}")
 
+        # Start timing first API call
+        start_time = time.time()
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=chat_history,
@@ -331,7 +332,9 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
             tools=tools,
             tool_choice="auto"
         )
-        print(f"response: {response}")
+        first_call_time = time.time() - start_time
+        print(f"First API call took {first_call_time:.2f} seconds")
+
         # Store the assistant's message in memory first
         assistant_message = response.choices[0].message
         if assistant_message.content:
@@ -339,7 +342,6 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
                 "role": "assistant",
                 "content": assistant_message.content })
 
-        print(f"chat history: {chat_history}")
 
         print(f"\n\n\nfinish reason: {response.choices[0].finish_reason}\n\n\n")
         if response.choices[0].finish_reason == "tool_calls":
@@ -348,7 +350,6 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
 
             tool_calls = response.choices[0].message.tool_calls
             call_id = tool_calls[0].id
-            print(call_id)
 
             # Call the function and get result
             result = ofc.call_function(name, args)
@@ -359,6 +360,8 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
                 "content": str(result)
             })
 
+            # Start timing second API call
+            start_time = time.time()
             gpt_response = openai.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=chat_history,
@@ -368,6 +371,8 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
                 presence_penalty=0.6,
                 frequency_penalty=0.3,
             )
+            second_call_time = time.time() - start_time
+            print(f"Second API call took {second_call_time:.2f} seconds")
 
             # Extract just the message content from the response
             gpt_response_content = gpt_response.choices[0].message.content

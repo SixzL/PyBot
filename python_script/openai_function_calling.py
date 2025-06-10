@@ -1,5 +1,6 @@
 import json
 import openai
+import time  # Add time module import
 from flask import jsonify
 from bson import ObjectId
 from pymongo import MongoClient
@@ -759,7 +760,10 @@ Remember:
 - No direct solutions - use questions and hints to guide discovery
 - Focus on understanding and learning rather than just completing the task
 - Help them develop problem-solving skills"""
-        print(f"Prompt: {prompt}")
+
+        
+        # Start timing API call
+        start_time = time.time()
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -772,6 +776,8 @@ Remember:
             presence_penalty=0.6,
             frequency_penalty=0.3,
         )
+        api_call_time = time.time() - start_time
+        print(f"API call took {api_call_time:.2f} seconds")
 
         return {
             "topic": topic,
@@ -789,6 +795,8 @@ Remember:
 
 def generate_chat_title(user_message):
     try:
+        # Start timing API call
+        start_time = time.time()
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -805,6 +813,8 @@ def generate_chat_title(user_message):
             temperature=0.7,
             top_p=1.0
         )
+        api_call_time = time.time() - start_time
+        print(f"Title generation API call took {api_call_time:.2f} seconds")
 
         title = response.choices[0].message.content.strip()
         # Ensure title is not too long
@@ -818,7 +828,6 @@ def generate_chat_title(user_message):
 def call_function(name, args_str):
     args = json.loads(args_str)
     print(f"Function called: {name}")
-    print(f"Arguments: {args}")
 
     if name == "propose_new_conversation":
         return propose_new_conversation(**args)
@@ -974,6 +983,8 @@ Remember:
 - Adapt the format based on whether it's a conceptual topic or implementation task
 - For conceptual topics, always start with a specific, concrete aspect and real-world analogy"""
 
+        # Start timing API call
+        start_time = time.time()
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -991,6 +1002,8 @@ Generate a welcoming message that sets the right tone for this focused learning 
             presence_penalty=0.6,
             frequency_penalty=0.3
         )
+        api_call_time = time.time() - start_time
+        print(f"Welcome message API call took {api_call_time:.2f} seconds")
 
         return response.choices[0].message.content
 
@@ -1010,7 +1023,6 @@ def problem_solved(topic, current_problem, submitted_code, history_context=""):
     print(f"\n\n\nTopic: {topic}")
     print(f"Current Problem: {current_problem}")
     print(f"Initial Submitted Code:\n{submitted_code}")
-    print(f"History Context:\n{history_context}")
 
     try:
         prompt = f"""You are generating the next problem in a sequence of increasingly challenging coding exercises.
@@ -1080,6 +1092,8 @@ Output: [expected output]
 
 REMEMBER: DO NOT CREATE A NEW PROBLEM if the next problem statement already exists in the conversation history - your task is to find and return it exactly as it appears. ELSE, CREATE A NEW PROBLEM based on the current topic and problem statement."""
 
+        # Start timing API call
+        start_time = time.time()
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -1089,6 +1103,8 @@ REMEMBER: DO NOT CREATE A NEW PROBLEM if the next problem statement already exis
             max_tokens=500,
             temperature=0.7
         )
+        api_call_time = time.time() - start_time
+        print(f"Problem solved API call took {api_call_time:.2f} seconds")
 
         next_problem = response.choices[0].message.content.strip()
 
