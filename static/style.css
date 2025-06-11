@@ -261,6 +261,7 @@ span.token.operator {
   tab-size: 4 !important;
   -moz-tab-size: 4 !important;
   -o-tab-size: 4 !important;
+  overflow-x: auto !important;
 }
 
 .code-block pre {
@@ -595,13 +596,19 @@ span.token.operator {
     max-width: 500px;
     width: 90%;
     margin-right: auto;
+    white-space: normal !important;
 }
 
-.invitation-content {
+.invitation-box .invitation-content {
     max-width: 100%;
     overflow-wrap: break-word;
     word-wrap: break-word;
     hyphens: auto;
+    white-space: normal !important;
+}
+
+.invitation-box * {
+    white-space: normal !important;
 }
 
 .invitation-header {
@@ -653,4 +660,10 @@ span.token.operator {
         max-width: 95%;
         margin: 0 8px;
     }
+}
+
+.message-content {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
 }

@@ -702,10 +702,10 @@ Remember:
         return base_instruction
 
 def propose_new_conversation(topic, problem_statement, submitted_code=None):
-    print("OFC: propose_new_conversation")
-    print(f"\n\n\nTopic: {topic}")
-    print(f"Problem Statement: {problem_statement}")
-    print(f"Submitted Code:\n{submitted_code}")
+    # print("OFC: propose_new_conversation")
+    # print(f"\n\n\nTopic: {topic}")
+    # print(f"Problem Statement: {problem_statement}")
+    # print(f"Submitted Code:\n{submitted_code}")
 
     # Get context-aware system instruction
     system_instruction = get_system_instruction(topic, problem_statement, submitted_code)
@@ -990,10 +990,10 @@ Generate a welcoming message that sets the right tone for this focused learning 
 
 def problem_solved(topic, current_problem, submitted_code, history_context=""):
     """Handle completion of a focused learning problem and suggest a harder one."""
-    print("OFC: problem_solved")
-    print(f"\n\n\nTopic: {topic}")
-    print(f"Current Problem: {current_problem}")
-    print(f"Initial Submitted Code:\n{submitted_code}")
+    # print("OFC: problem_solved")
+    # print(f"\n\n\nTopic: {topic}")
+    # print(f"Current Problem: {current_problem}")
+    # print(f"Initial Submitted Code:\n{submitted_code}")
 
     try:
         prompt = f"""You are generating the next problem in a sequence of increasingly challenging coding exercises.

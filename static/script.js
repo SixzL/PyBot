@@ -580,11 +580,11 @@ function formatMessage(content) {
     function (match, lang, code) {
       // Default to python if no language is specified
       const languageClass = lang ? `language-${lang}` : "language-python";
-      // Clean the code: trim extra whitespace but preserve indentation
-      const cleanedCode = code.trim();
+      // Preserve indentation by not trimming the code
+      const preservedCode = code.replace(/^\n+|\n+$/g, ""); // Only remove leading/trailing blank lines
       // Create a temporary div to let Prism highlight the code
       const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = `<pre class="code-block"><code class="${languageClass}">${cleanedCode}</code></pre>`;
+      tempDiv.innerHTML = `<pre class="code-block"><code class="${languageClass}">${preservedCode}</code></pre>`;
       // Manually highlight the code
       Prism.highlightElement(tempDiv.querySelector("code"));
       // Return the highlighted HTML
@@ -607,8 +607,7 @@ function formatMessage(content) {
     .replace(/`([^`\n]+)`/g, "<code>$1</code>") // Inline code
     .replace(/###\s+(.*?)(\n|$)/g, "<h3>$1</h3>") // Headings
     .replace(/\n\n/g, "<br><br>") // Paragraph breaks
-    .replace(/\n/g, "<br>") // Line breaks
-    .trim();
+    .replace(/\n/g, "<br>"); // Line breaks
 
   return finalMessage;
 }
