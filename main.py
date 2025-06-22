@@ -530,41 +530,6 @@ def continue_conversation_logic(user_id, conversation_id, user_message):
                     "is_completed": True
                 }
 
-            elif name == "redefine_problem":
-                # Call the function with the conversation ID
-                result = ofc.call_function(name, args)
-
-                if "error" in result:
-                    return {
-                        "response": f"Error: {result['error']}",
-                        "propose_new_chat": False,
-                        "topic": None
-                    }
-
-                # Store messages in chronological order
-                # 1. User's message
-                messages.insert_one({
-                    "conversation_id": ObjectId(conversation_id),
-                    "user_id": user_id,
-                    "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-                    "sender": "user",
-                    "message": {"type": "text", "content": user_message}
-                })
-
-                # 2. Assistant's response with the refined problem
-                messages.insert_one({
-                    "conversation_id": ObjectId(conversation_id),
-                    "user_id": user_id,
-                    "timestamp": datetime.now(ZoneInfo("Asia/Kuala_Lumpur")),
-                    "sender": "assistant",
-                    "message": {"type": "text", "content": gpt_response_content}
-                })
-
-                return {
-                    "response": gpt_response_content,
-                    "is_completed": conversation.get('is_completed', False)
-                }
-
         # Standard text response
         gpt_response_content = assistant_message.content
 
