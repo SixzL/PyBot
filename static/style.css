@@ -335,6 +335,26 @@ span.token.operator {
   white-space: normal;
 }
 
+/* Math block styling */
+.math-block {
+  text-align: center;
+  margin: 15px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.math-block code {
+  background: none;
+  color: #2c3930;
+  font-size: 1.1em;
+  font-family: "Times New Roman", serif;
+  padding: 0;
+  border-radius: 0;
+}
+
 /* Toast styling */
 .toast {
   border-radius: 8px;

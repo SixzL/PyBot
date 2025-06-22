@@ -601,7 +601,8 @@ function formatMessage(content) {
     .replace(/\\le/g, "≤") // Convert \le to ≤ symbol
     .replace(/\\ge/g, "≥") // Convert \ge to ≥ symbol
     .replace(/\\ne/g, "≠") // Convert \ne to ≠ symbol
-    // Convert LaTeX-style variables to code format
+    // Convert LaTeX-style math to code format
+    .replace(/\\\[\s*(.*?)\s*\\\]/g, "<div class='math-block'><code>$1</code></div>") // Convert \[ formula \] to block code
     .replace(/\\\(\s*(.*?)\s*\\\)/g, "`$1`") // Convert \( n \) to `n` (trim spaces)
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold
     .replace(/`([^`\n]+)`/g, "<code>$1</code>") // Inline code
