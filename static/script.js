@@ -259,22 +259,36 @@ $(document).ready(function () {
     if (message.type === "invitation") {
       // Create invitation message with button
       messageContent = `
-            <div class="msgBox py-2 px-3 rounded bg-light text-dark">
-                ${message.content}
-                <div class="mt-2">
-                    <button class="btn btn-primary btn-sm learn-more-btn" 
-                            ${message.accepted ? "disabled" : ""} 
-                            data-topic="${encodeURIComponent(message.content)}"
-                            data-submitted-code="${encodeURIComponent(
-                              message.submitted_code || ""
-                            )}"
-                            data-problem="${encodeURIComponent(
-                              message.problem_statement || ""
-                            )}"
-                            data-message-id="${message._id || ""}">
-                        <i class="fa-solid fa-book-open me-1"></i> 
-                        ${message.accepted ? "Already started" : "Learn more"}
-                    </button>
+            <div class="msgBox py-3 px-4 rounded bg-light text-dark invitation-box">
+                <div class="invitation-content">
+                    <div class="invitation-header mb-2">
+                        <i class="fa-solid fa-star text-warning me-2"></i>
+                        <strong>Invitation to Focused Learning</strong>
+                    </div>
+                    <div class="invitation-description mb-3">
+                        <p class="invitation-text text-muted mb-2">
+                            Join a focused learning session to master this specific topic. 
+                            Focused learning helps you understand and solve problems more efficiently 
+                            by concentrating on one topic at a time.
+                        </p>
+                        <strong class="topic-label">Topic:</strong>
+                        <div class="topic-content">${message.content}</div>
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-primary btn-sm learn-more-btn" 
+                                ${message.accepted ? "disabled" : ""} 
+                                data-topic="${encodeURIComponent(message.content)}"
+                                data-submitted-code="${encodeURIComponent(
+                                  message.submitted_code || ""
+                                )}"
+                                data-problem="${encodeURIComponent(
+                                  message.problem_statement || ""
+                                )}"
+                                data-message-id="${message._id || ""}">
+                            <i class="fa-solid fa-graduation-cap me-1"></i> 
+                            ${message.accepted ? "Already started" : "Start focused learning"}
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -284,7 +298,7 @@ $(document).ready(function () {
               message.role === "user"
                 ? "bg-primary text-white"
                 : "bg-light text-dark"
-            }" style="white-space: pre-wrap;">${formatMessage(message.content)}</div>`;
+            } message-content">${formatMessage(message.content)}</div>`;
     }
 
     messageDiv.html(messageContent);
@@ -342,12 +356,12 @@ $(document).ready(function () {
                 })
                 .catch(() => {
                   // If focused conversation creation fails, re-enable the button
-                  button.prop("disabled", false).text("Learn more");
+                  button.prop("disabled", false).text("Start focused learning");
                 });
             },
             error: function (xhr) {
               // Re-enable the button on error
-              button.prop("disabled", false).text("Learn more");
+              button.prop("disabled", false).text("Start focused learning");
               showErrorToast(
                 xhr.responseJSON?.error || "Failed to update invitation status"
               );
@@ -443,9 +457,16 @@ $(document).ready(function () {
             type: "invitation",
             content: response.topic,
             submitted_code: response.submitted_code || "",
-            problem_statement: response.problem_statement, // Pass problem statement directly without fallback
+            problem_statement: response.problem_statement,
             _id: response.message_id,
           });
+        }
+
+        // Check if the conversation is now completed
+        if (response.is_completed) {
+          disableInput();
+        } else {
+          $("#user-input").prop("disabled", false).focus(); // Only re-enable if not completed
         }
 
         // Update the sidebar
@@ -463,9 +484,10 @@ $(document).ready(function () {
           content: "⚠️ Error: Could not get a response.",
         });
         showErrorToast("Failed to get a response from the server");
+        $("#user-input").prop("disabled", false).focus(); // Re-enable input on error
       },
       complete: function () {
-        $("#user-input").prop("disabled", false).focus(); // Re-enable input after response
+        // All input enabling/disabling is now handled in success/error handlers
       },
     });
   });
@@ -558,11 +580,11 @@ function formatMessage(content) {
     function (match, lang, code) {
       // Default to python if no language is specified
       const languageClass = lang ? `language-${lang}` : "language-python";
-      // Clean the code: trim extra whitespace but preserve indentation
-      const cleanedCode = code.trim();
+      // Preserve indentation by not trimming the code
+      const preservedCode = code.replace(/^\n+|\n+$/g, ""); // Only remove leading/trailing blank lines
       // Create a temporary div to let Prism highlight the code
       const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = `<pre class="code-block"><code class="${languageClass}">${cleanedCode}</code></pre>`;
+      tempDiv.innerHTML = `<pre class="code-block"><code class="${languageClass}">${preservedCode}</code></pre>`;
       // Manually highlight the code
       Prism.highlightElement(tempDiv.querySelector("code"));
       // Return the highlighted HTML
@@ -570,18 +592,23 @@ function formatMessage(content) {
     }
   );
 
-
   // Format Markdown-style text (outside of code blocks)
   const finalMessage = formattedMessage
-    // Convert LaTeX-style variables to code format
+    // Handle LaTeX symbols first
+    .replace(/\\times/g, "×") // Convert \times to × symbol
+    .replace(/\\div/g, "÷") // Convert \div to ÷ symbol
+    .replace(/\\pm/g, "±") // Convert \pm to ± symbol
+    .replace(/\\le/g, "≤") // Convert \le to ≤ symbol
+    .replace(/\\ge/g, "≥") // Convert \ge to ≥ symbol
+    .replace(/\\ne/g, "≠") // Convert \ne to ≠ symbol
+    // Convert LaTeX-style math to code format
+    .replace(/\\\[\s*(.*?)\s*\\\]/g, "<div class='math-block'><code>$1</code></div>") // Convert \[ formula \] to block code
     .replace(/\\\(\s*(.*?)\s*\\\)/g, "`$1`") // Convert \( n \) to `n` (trim spaces)
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold
     .replace(/`([^`\n]+)`/g, "<code>$1</code>") // Inline code
     .replace(/###\s+(.*?)(\n|$)/g, "<h3>$1</h3>") // Headings
     .replace(/\n\n/g, "<br><br>") // Paragraph breaks
-    .replace(/\n/g, "<br>") // Line breaks
-    .trim();
-
+    .replace(/\n/g, "<br>"); // Line breaks
 
   return finalMessage;
 }
@@ -654,7 +681,6 @@ function appendConversation(conv, index, isFocused) {
     li.appendChild(link);
     return li;
 }
-
 // Update the updateConversationList function
 function updateConversationList() {
     $.ajax({
@@ -717,3 +743,4 @@ function updateConversationList() {
         }
     });
 }
+

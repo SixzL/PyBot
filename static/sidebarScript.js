@@ -1,5 +1,6 @@
 document.addEventListener("DOMContentLoaded", function () {
-  const sidebarList = document.querySelector(".nav-pills");
+  const regularList = document.querySelector("#regular-conversations");
+  const focusedList = document.querySelector("#focused-conversations");
   const newConversationBtn = document.querySelector(".btn-outline-light");
 
   // Function to update conversation list
@@ -8,7 +9,9 @@ document.addEventListener("DOMContentLoaded", function () {
       url: "/conversations",
       method: "GET",
       success: function (response) {
-        sidebarList.innerHTML = ""; // Clear existing list
+        // Clear existing lists
+        regularList.innerHTML = "";
+        focusedList.innerHTML = "";
 
         if (response.conversations.length === 0) {
           const emptyState = document.createElement("div");
@@ -22,7 +25,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <i class="fa-solid fa-comment-slash mb-2 fs-4"></i>
             <p>No conversations yet</p>
           `;
-          sidebarList.parentNode.appendChild(emptyState);
+          regularList.appendChild(emptyState);
           return;
         }
 
@@ -34,58 +37,58 @@ document.addEventListener("DOMContentLoaded", function () {
           (conv) => conv.type === "focused"
         );
 
-        // Add section header for regular conversations if any exist
+        // Add regular conversations
         if (regularConvs.length > 0) {
-          const regularHeader = document.createElement("div");
-          regularHeader.classList.add(
-            "sidebar-section-header",
-            "text-white-50",
-            "small",
-            "fw-bold",
-            "px-2",
-            "py-1"
-          );
-          regularHeader.textContent = "CONVERSATIONS";
-          sidebarList.appendChild(regularHeader);
-
-          // Add regular conversations
           regularConvs.forEach((conv, index) => {
-            appendConversation(conv, index, false);
+            appendConversation(conv, index, false, regularList);
           });
+        } else {
+          const emptyState = document.createElement("div");
+          emptyState.classList.add(
+            "text-center",
+            "text-muted",
+            "mt-3",
+            "small"
+          );
+          emptyState.innerHTML = `
+            <i class="fa-solid fa-comment-slash mb-2 fs-4"></i>
+            <p>No regular conversations</p>
+          `;
+          regularList.appendChild(emptyState);
         }
 
-        // Add section header for focused conversations if any exist
+        // Add focused conversations
         if (focusedConvs.length > 0) {
-          const focusedHeader = document.createElement("div");
-          focusedHeader.classList.add(
-            "sidebar-section-header",
-            "text-white-50",
-            "small",
-            "fw-bold",
-            "px-2",
-            "py-1",
-            "mt-3"
-          );
-          focusedHeader.textContent = "FOCUSED LEARNING";
-          sidebarList.appendChild(focusedHeader);
-
-          // Add focused conversations
           focusedConvs.forEach((conv, index) => {
-            appendConversation(conv, index, true);
+            appendConversation(conv, index, true, focusedList);
           });
+        } else {
+          const emptyState = document.createElement("div");
+          emptyState.classList.add(
+            "text-center",
+            "text-muted",
+            "mt-3",
+            "small"
+          );
+          emptyState.innerHTML = `
+            <i class="fa-solid fa-code-slash mb-2 fs-4"></i>
+            <p>No focused learning sessions</p>
+          `;
+          focusedList.appendChild(emptyState);
         }
       },
       error: function () {
-        const li = document.createElement("li");
-        li.classList.add("text-danger", "p-2");
-        li.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-2"></i>Failed to load conversations.`;
-        sidebarList.appendChild(li);
+        const errorMsg = document.createElement("li");
+        errorMsg.classList.add("text-danger", "p-2");
+        errorMsg.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-2"></i>Failed to load conversations.`;
+        regularList.appendChild(errorMsg.cloneNode(true));
+        focusedList.appendChild(errorMsg);
       },
     });
   }
 
   // Function to append a conversation to the sidebar
-  function appendConversation(conv, index, isFocused) {
+  function appendConversation(conv, index, isFocused, targetList) {
     const li = document.createElement("li");
     li.classList.add("nav-item", "mb-2");
 
@@ -130,27 +133,16 @@ document.addEventListener("DOMContentLoaded", function () {
       mainContent.innerHTML = `<i class="fa-solid fa-code me-1"></i><span class="text-truncate">${
         conv.topic || `Challenge ${index + 1}`
       }</span>`;
-      
-      // Add completion indicator separately
-      if (conv.is_completed) {
-        const completionIndicator = document.createElement("span");
-        completionIndicator.classList.add("ms-2");
-        completionIndicator.innerHTML = '<i class="fa-solid fa-check-circle text-success"></i>';
-        link.appendChild(mainContent);
-        link.appendChild(completionIndicator);
-      } else {
-        link.appendChild(mainContent);
-      }
     } else {
       // Use the title or fallback for regular conversations
       mainContent.innerHTML = `<i class="fa-solid fa-comment me-1"></i><span class="text-truncate">${
         conv.title || `Conversation ${index + 1}`
       }</span>`;
-      link.appendChild(mainContent);
     }
-
+    
+    link.appendChild(mainContent);
     li.appendChild(link);
-    sidebarList.appendChild(li);
+    targetList.appendChild(li);
   }
 
   // Initial load of conversations
